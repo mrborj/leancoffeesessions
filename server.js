@@ -70,7 +70,73 @@ function adminFromRow(row) {
     role: row.role,
     team: row.team_name || "",
     archived: row.archived,
+    sessionId: row.session_id || "",
+    sessionName: row.session_name || "",
   };
+}
+
+function slug(value) {
+  return String(value || "session")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "session";
+}
+
+function sessionFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    team: row.team_name,
+    adminId: row.admin_id || "",
+    status: row.status,
+    archived: row.archived,
+    createdAt: row.created_at,
+  };
+}
+
+function participantFromRow(row) {
+  return {
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    philipsTeam: row.philips_team,
+    teamNumber: row.team_number,
+    businessUnit: row.business_unit || "",
+    specificTeam: row.specific_team || "",
+    sessionId: row.session_id,
+    sessionName: row.session_name || "",
+    eventStatus: row.event_status,
+    archived: row.archived,
+  };
+}
+
+async function ensureSessionForAdmin(admin) {
+  if (admin.role !== "Session Admin") return null;
+
+  const team = admin.team_name || admin.username;
+  const sessionId = `session-${slug(team)}`;
+  const sessionName = `${team} Lean Sessions`;
+  const result = await pool.query(
+    `
+      INSERT INTO sessions (
+        id,
+        name,
+        team_name,
+        admin_id,
+        status
+      )
+      VALUES ($1, $2, $3, $4, 'Not Started')
+      ON CONFLICT (id) DO UPDATE
+        SET name = EXCLUDED.name,
+            team_name = EXCLUDED.team_name,
+            admin_id = EXCLUDED.admin_id
+      RETURNING *
+    `,
+    [sessionId, sessionName, team, admin.id]
+  );
+  return result.rows[0];
 }
 
 async function initializeDatabase() {
@@ -92,6 +158,49 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      team_name TEXT NOT NULL,
+      admin_id TEXT REFERENCES admins(id),
+      status TEXT NOT NULL DEFAULT 'Not Started',
+      archived BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS participants (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      philips_team TEXT NOT NULL,
+      team_number TEXT,
+      business_unit TEXT,
+      specific_team TEXT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      event_status TEXT NOT NULL DEFAULT 'Not Started',
+      archived BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(
+    `
+      INSERT INTO sessions (
+        id,
+        name,
+        team_name,
+        status
+      )
+      VALUES ('master-data', 'Master Data Lean Sessions', 'Master Data', 'Not Started')
+      ON CONFLICT (id) DO NOTHING
+    `
+  );
 
   const adminCount = await pool.query("SELECT COUNT(*)::int AS count FROM admins");
   const seedUsername = process.env.SUPER_ADMIN_USERNAME;
@@ -149,13 +258,37 @@ async function handleApi(request, response) {
       return true;
     }
 
-    sendJson(response, 200, { ok: true, admin: adminFromRow(admin) });
+    const session = await ensureSessionForAdmin(admin);
+    sendJson(response, 200, {
+      ok: true,
+      admin: {
+        ...adminFromRow(admin),
+        sessionId: session?.id || "",
+        sessionName: session?.name || "",
+      },
+    });
     return true;
   }
 
   if (url.pathname === "/api/admins" && request.method === "GET") {
-    const result = await pool.query("SELECT * FROM admins ORDER BY created_at DESC");
+    const result = await pool.query(`
+      SELECT
+        admins.*,
+        sessions.id AS session_id,
+        sessions.name AS session_name
+      FROM admins
+      LEFT JOIN sessions
+        ON sessions.admin_id = admins.id
+        AND sessions.archived = false
+      ORDER BY admins.created_at DESC
+    `);
     sendJson(response, 200, { ok: true, admins: result.rows.map(adminFromRow) });
+    return true;
+  }
+
+  if (url.pathname === "/api/sessions" && request.method === "GET") {
+    const result = await pool.query("SELECT * FROM sessions WHERE archived = false ORDER BY created_at DESC");
+    sendJson(response, 200, { ok: true, sessions: result.rows.map(sessionFromRow) });
     return true;
   }
 
@@ -189,7 +322,135 @@ async function handleApi(request, response) {
       ]
     );
 
-    sendJson(response, 201, { ok: true, admin: adminFromRow(result.rows[0]) });
+    const session = await ensureSessionForAdmin(result.rows[0]);
+    sendJson(response, 201, {
+      ok: true,
+      admin: {
+        ...adminFromRow(result.rows[0]),
+        sessionId: session?.id || "",
+        sessionName: session?.name || "",
+      },
+    });
+    return true;
+  }
+
+  if (url.pathname === "/api/participants" && request.method === "GET") {
+    const result = await pool.query(`
+      SELECT
+        participants.*,
+        sessions.name AS session_name
+      FROM participants
+      JOIN sessions ON sessions.id = participants.session_id
+      ORDER BY participants.created_at DESC
+    `);
+    sendJson(response, 200, { ok: true, participants: result.rows.map(participantFromRow) });
+    return true;
+  }
+
+  if (url.pathname === "/api/participants" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const id = body.id || `participant-${crypto.randomUUID()}`;
+    const sessionId = body.sessionId || "master-data";
+    const result = await pool.query(
+      `
+        INSERT INTO participants (
+          id,
+          email,
+          first_name,
+          last_name,
+          password_hash,
+          philips_team,
+          team_number,
+          business_unit,
+          specific_team,
+          session_id,
+          event_status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *,
+          (SELECT name FROM sessions WHERE sessions.id = participants.session_id) AS session_name
+      `,
+      [
+        id,
+        String(body.email || "").trim(),
+        String(body.firstName || "").trim(),
+        String(body.lastName || "").trim(),
+        hashPassword(body.password || ""),
+        String(body.philipsTeam || "").trim(),
+        String(body.teamNumber || "").trim(),
+        String(body.businessUnit || "").trim() || null,
+        String(body.specificTeam || "").trim() || null,
+        sessionId,
+        body.eventStatus || "Not Started",
+      ]
+    );
+    sendJson(response, 201, { ok: true, participant: participantFromRow(result.rows[0]) });
+    return true;
+  }
+
+  if (url.pathname === "/api/participant-login" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const result = await pool.query(
+      `
+        SELECT
+          participants.*,
+          sessions.name AS session_name,
+          sessions.team_name AS session_team
+        FROM participants
+        JOIN sessions ON sessions.id = participants.session_id
+        WHERE participants.email = $1
+          AND participants.archived = false
+        LIMIT 1
+      `,
+      [String(body.email || "").trim()]
+    );
+    const participant = result.rows[0];
+
+    if (!participant || !passwordMatches(body.password || "", participant.password_hash)) {
+      sendJson(response, 401, { ok: false, error: "Invalid email address or password." });
+      return true;
+    }
+
+    if (participant.event_status === "Completed") {
+      sendJson(response, 403, { ok: false, error: "This participant has already completed the event." });
+      return true;
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      participant: participantFromRow(participant),
+      session: {
+        id: participant.session_id,
+        name: participant.session_name,
+        team: participant.session_team,
+      },
+    });
+    return true;
+  }
+
+  if (url.pathname.startsWith("/api/participants/") && request.method === "PATCH") {
+    const participantId = decodeURIComponent(url.pathname.split("/").pop());
+    const body = await readRequestBody(request);
+    const result = await pool.query(
+      `
+        UPDATE participants
+        SET archived = COALESCE($2, archived),
+            event_status = COALESCE($3, event_status)
+        WHERE id = $1
+        RETURNING *,
+          (SELECT name FROM sessions WHERE sessions.id = participants.session_id) AS session_name
+      `,
+      [
+        participantId,
+        typeof body.archived === "boolean" ? body.archived : null,
+        body.eventStatus || null,
+      ]
+    );
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, error: "Participant not found." });
+      return true;
+    }
+    sendJson(response, 200, { ok: true, participant: participantFromRow(result.rows[0]) });
     return true;
   }
 

@@ -67,5 +67,9 @@ The app now uses PostgreSQL for:
 - Admin login
 - Register Admin
 - Admin View loading
+- Session Admin sessions
+- Register Participant
+- Participant View loading
+- Participant login
 
-Participants, sessions, topics, votes, and timers still use browser local storage until they are migrated to API routes.
+Topics, votes, timers, and archived results still use browser local storage until they are migrated to API routes.

@@ -71,6 +71,7 @@ function currentParticipant() {
       team: session.sessionTeam,
     });
   }
+  if (session.participant) return session.participant;
   return readItems(participantStorageKey).find((participant) => participant.id === session.id && !participant.archived);
 }
 

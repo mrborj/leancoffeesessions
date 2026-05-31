@@ -58,6 +58,8 @@ const writeItems = (key, items) => LeanCoffeeSession.writeItems(key, items);
 const id = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const isSuperAdmin = adminSession?.role !== "Session Admin";
 let backendAdmins = null;
+let backendSessions = null;
+let backendParticipants = null;
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, options);
@@ -69,10 +71,18 @@ async function apiRequest(path, options = {}) {
 
 async function loadBackendAdmins() {
   try {
-    const data = await apiRequest("/api/admins");
-    if (!data) return;
-    backendAdmins = data.admins;
-    renderAdmins();
+    const [adminData, sessionData, participantData] = await Promise.all([
+      apiRequest("/api/admins"),
+      apiRequest("/api/sessions"),
+      apiRequest("/api/participants"),
+    ]);
+    if (adminData) backendAdmins = adminData.admins;
+    if (sessionData) {
+      backendSessions = sessionData.sessions;
+      backendSessions.forEach((session) => LeanCoffeeSession.saveSession(session));
+    }
+    if (participantData) backendParticipants = participantData.participants;
+    render();
     renderKpis();
     renderSessionOverview();
   } catch (error) {
@@ -84,8 +94,16 @@ function adminItems() {
   return backendAdmins || readItems(storageKeys.admins);
 }
 
+function participantItems() {
+  return backendParticipants || null;
+}
+
+function sessionItemsSource() {
+  return backendSessions || LeanCoffeeSession.sessions();
+}
+
 function visibleSessions() {
-  const sessions = LeanCoffeeSession.sessions();
+  const sessions = sessionItemsSource();
   const archivedIds = new Set(JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]").map((entry) => entry.sessionId));
   const activeSessions = sessions.filter((session) => !archivedIds.has(session.id));
   return isSuperAdmin
@@ -101,6 +119,15 @@ function selectedTopicSessions() {
 }
 
 function sessionItems(key, session) {
+  if (key === storageKeys.participants && backendParticipants) {
+    return backendParticipants
+      .filter((participant) => participant.sessionId === session.id)
+      .map((participant) => ({
+        ...participant,
+        sessionId: participant.sessionId || session.id,
+        sessionName: participant.sessionName || session.name,
+      }));
+  }
   return LeanCoffeeSession.readItemsForSession(key, session.id).map((item) => ({
     ...item,
     sessionId: item.sessionId || session.id,
@@ -123,7 +150,7 @@ function sessionAdminSessionId(admin) {
 function sessionCountForAdmin(admin) {
   if ((admin.role || "Super Admin") !== "Session Admin") return 0;
   const sessionId = sessionAdminSessionId(admin);
-  const activeCount = LeanCoffeeSession.sessions().some((session) => session.id === sessionId) ? 1 : 0;
+  const activeCount = sessionItemsSource().some((session) => session.id === sessionId) ? 1 : 0;
   const archivedCount = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]")
     .filter((entry) => entry.sessionId === sessionId).length;
   return activeCount + archivedCount;
@@ -145,12 +172,12 @@ function formValue(form, name) {
   return String(new FormData(form).get(name) || "").trim();
 }
 
-function saveParticipant(event) {
+async function saveParticipant(event) {
   event.preventDefault();
   const participants = readItems(storageKeys.participants);
   const team = formValue(participantForm, "philipsTeam");
 
-  participants.push({
+  const participant = {
     id: id(),
     email: formValue(participantForm, "email"),
     firstName: formValue(participantForm, "firstName"),
@@ -164,7 +191,27 @@ function saveParticipant(event) {
     sessionName: LeanCoffeeSession.activeSession().name,
     eventStatus: formValue(participantForm, "eventStatus") || "Not Started",
     archived: false,
-  });
+  };
+
+  try {
+    const data = await apiRequest("/api/participants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(participant),
+    });
+    if (data?.participant) {
+      backendParticipants = [data.participant, ...(backendParticipants || [])];
+      participantForm.reset();
+      setConditionalFields();
+      render();
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  participants.push(participant);
 
   writeItems(storageKeys.participants, participants);
   participantForm.reset();
@@ -198,6 +245,14 @@ async function saveAdmin(event) {
     });
     if (data?.admin) {
       backendAdmins = [data.admin, ...(backendAdmins || [])];
+      if (data.admin.sessionId) {
+        const session = LeanCoffeeSession.saveSession({
+          id: data.admin.sessionId,
+          name: data.admin.sessionName,
+          team: data.admin.team,
+        });
+        backendSessions = [session, ...(backendSessions || []).filter((item) => item.id !== session.id)];
+      }
       adminForm.reset();
       render();
       return;
@@ -227,7 +282,9 @@ function escapeHtml(value) {
 }
 
 function renderParticipants() {
-  const participants = isSuperAdmin ? allVisibleItems(storageKeys.participants) : readItems(storageKeys.participants);
+  const participants = backendParticipants
+    ? (isSuperAdmin ? backendParticipants : backendParticipants.filter((participant) => participant.sessionId === LeanCoffeeSession.activeSession().id))
+    : (isSuperAdmin ? allVisibleItems(storageKeys.participants) : readItems(storageKeys.participants));
   const active = participants.filter((participant) => !participant.archived);
 
   participantList.innerHTML = active.length
@@ -308,7 +365,7 @@ function renderAdmins() {
 
 function renderAdminSessionDetails(admin) {
   const sessionId = sessionAdminSessionId(admin);
-  const activeSessions = LeanCoffeeSession.sessions().filter((session) => session.id === sessionId);
+  const activeSessions = sessionItemsSource().filter((session) => session.id === sessionId);
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]")
     .filter((entry) => entry.sessionId === sessionId)
     .map((entry) => ({
@@ -480,7 +537,7 @@ function renderArchiveOptions() {
 
 function renderActiveArchivePreview() {
   if (!activeArchivePreview || !archiveSessionSelect) return;
-  const session = LeanCoffeeSession.sessions().find((item) => item.id === archiveSessionSelect.value);
+  const session = sessionItemsSource().find((item) => item.id === archiveSessionSelect.value);
   if (!session) {
     activeArchivePreview.innerHTML = "";
     return;
@@ -585,7 +642,9 @@ function renderSessionOverview() {
     return;
   }
 
-  const participants = LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id);
+  const participants = backendParticipants
+    ? backendParticipants.filter((participant) => participant.sessionId === session.id)
+    : LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id);
   const topics = LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id);
   const votes = LeanCoffeeSession.readItemsForSession(storageKeys.votes, session.id);
   const admins = adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === session.id);
@@ -691,7 +750,7 @@ function archiveSelectedSession() {
 }
 
 function archiveSessionById(sessionId) {
-  const session = LeanCoffeeSession.sessions().find((item) => item.id === sessionId);
+  const session = sessionItemsSource().find((item) => item.id === sessionId);
   if (!session) return;
 
   const archive = {
@@ -702,14 +761,22 @@ function archiveSessionById(sessionId) {
     archivedBy: adminSession?.username || "Admin",
     topics: LeanCoffeeSession.readItemsForSession(storageKeys.topics, sessionId),
     votes: LeanCoffeeSession.readItemsForSession(storageKeys.votes, sessionId),
-    participants: LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId),
+    participants: backendParticipants
+      ? backendParticipants.filter((participant) => participant.sessionId === sessionId)
+      : LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId),
     admins: adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === sessionId),
   };
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   localStorage.setItem(storageKeys.archivedResults, JSON.stringify([archive, ...archives]));
-  const participants = LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId)
-    .map((participant) => ({ ...participant, archived: true, eventStatus: "Completed" }));
-  LeanCoffeeSession.setItemForSession(storageKeys.participants, sessionId, JSON.stringify(participants));
+  if (backendParticipants) {
+    backendParticipants = backendParticipants.map((participant) =>
+      participant.sessionId === sessionId ? { ...participant, archived: true, eventStatus: "Completed" } : participant
+    );
+  } else {
+    const participants = LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId)
+      .map((participant) => ({ ...participant, archived: true, eventStatus: "Completed" }));
+    LeanCoffeeSession.setItemForSession(storageKeys.participants, sessionId, JSON.stringify(participants));
+  }
   LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
   LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
   LeanCoffeeSession.removeItemForSession(storageKeys.activeTopic, sessionId);
@@ -754,7 +821,11 @@ function sessionTopicStats(session) {
 function renderKpis() {
   if (!kpiGrid) return;
   const sessions = filteredKpiSessions();
-  const participants = sessions.flatMap((session) => LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id));
+  const participants = sessions.flatMap((session) =>
+    backendParticipants
+      ? backendParticipants.filter((participant) => participant.sessionId === session.id)
+      : LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id)
+  );
   const stats = sessions.reduce(
     (totals, session) => {
       const sessionStats = sessionTopicStats(session);
@@ -941,7 +1012,27 @@ function saveRow(row, collection, sessionId) {
   render();
 }
 
-function archiveRow(itemId, collection, sessionId) {
+async function archiveRow(itemId, collection, sessionId) {
+  if (collection === storageKeys.participants && backendParticipants) {
+    try {
+      const data = await apiRequest(`/api/participants/${encodeURIComponent(itemId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      if (data?.participant) {
+        backendParticipants = backendParticipants.map((participant) =>
+          participant.id === itemId ? data.participant : participant
+        );
+        render();
+      }
+      return;
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+  }
+
   const sourceItems = collection === storageKeys.participants
     ? LeanCoffeeSession.readItemsForSession(collection, sessionId)
     : readItems(collection);

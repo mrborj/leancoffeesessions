@@ -185,6 +185,12 @@ function markParticipantCompleted() {
   const session = participantSession();
   if (!session?.id) return;
 
+  fetch(`/api/participants/${encodeURIComponent(session.id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventStatus: "Completed" }),
+  }).catch(() => {});
+
   const participants = timerSession.readItems("leanCoffeeParticipants");
   const updatedParticipants = participants.map((participant) =>
     participant.id === session.id ? { ...participant, eventStatus: "Completed" } : participant

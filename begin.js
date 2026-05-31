@@ -21,12 +21,53 @@ function participantMatches(email, password) {
   return { participant: null, participants: Array.from({ length: totalParticipants }), session: null };
 }
 
-participantLoginForm.addEventListener("submit", (event) => {
+async function apiParticipantLogin(email, password) {
+  const response = await fetch("/api/participant-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Invalid email address or password.");
+  return data;
+}
+
+function saveParticipantSession(participant, session) {
+  LeanCoffeeSession.setActiveSession(session);
+  sessionStorage.setItem(
+    participantSessionKey,
+    JSON.stringify({
+      id: participant.id,
+      sessionId: session.id,
+      sessionName: session.name,
+      sessionTeam: session.team,
+      participant,
+    })
+  );
+  participantLoginForm.reset();
+  window.location.href = "event.html";
+}
+
+participantLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(participantLoginForm);
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
+
+  try {
+    const apiLogin = await apiParticipantLogin(email, password);
+    if (apiLogin?.participant && apiLogin?.session) {
+      saveParticipantSession(apiLogin.participant, apiLogin.session);
+      return;
+    }
+  } catch (error) {
+    participantLoginError.textContent = error.message;
+    return;
+  }
+
   const { participant, participants, session } = participantMatches(email, password);
 
   if (!participant) {
@@ -41,16 +82,5 @@ participantLoginForm.addEventListener("submit", (event) => {
     return;
   }
 
-  LeanCoffeeSession.setActiveSession(session);
-  sessionStorage.setItem(
-    participantSessionKey,
-    JSON.stringify({
-      id: participant.id,
-      sessionId: session.id,
-      sessionName: session.name,
-      sessionTeam: session.team,
-    })
-  );
-  participantLoginForm.reset();
-  window.location.href = "event.html";
+  saveParticipantSession(participant, session);
 });
