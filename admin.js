@@ -38,8 +38,8 @@ const runtimeSelect = document.querySelector("[data-runtime-select]");
 const runtimePreview = document.querySelector("[data-runtime-preview]");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
-const runtimeStorageKey = "leanCoffeeRuntime";
-const runtimePresets = {
+const adminRuntimeStorageKey = "leanCoffeeRuntime";
+const adminRuntimePresets = {
   demo: {
     id: "demo",
     name: "Demo Runtime",
@@ -80,7 +80,7 @@ const runtimePresets = {
     ],
   },
 };
-let activeRuntime = runtimePresets.demo;
+let adminActiveRuntime = adminRuntimePresets.demo;
 
 const storageKeys = {
   participants: "leanCoffeeParticipants",
@@ -318,14 +318,14 @@ function formValue(form, name) {
 }
 
 function setRuntime(runtime) {
-  activeRuntime = runtimePresets[runtime?.id] || runtime || runtimePresets.demo;
-  localStorage.setItem(runtimeStorageKey, JSON.stringify(activeRuntime));
-  if (runtimeSelect) runtimeSelect.value = activeRuntime.id || "demo";
+  adminActiveRuntime = adminRuntimePresets[runtime?.id] || runtime || adminRuntimePresets.demo;
+  localStorage.setItem(adminRuntimeStorageKey, JSON.stringify(adminActiveRuntime));
+  if (runtimeSelect) runtimeSelect.value = adminActiveRuntime.id || "demo";
 }
 
 function renderRuntimePreview() {
   if (!runtimePreview || !runtimeSelect) return;
-  const runtime = runtimePresets[runtimeSelect.value] || activeRuntime;
+  const runtime = adminRuntimePresets[runtimeSelect.value] || adminActiveRuntime;
   runtimePreview.innerHTML = `
     <article class="topic-entry">
       <div class="topic-entry__meta">
@@ -366,7 +366,7 @@ async function saveRuntime(event) {
     alert(error.message);
     return;
   }
-  setRuntime(runtimePresets[runtimeId]);
+  setRuntime(adminRuntimePresets[runtimeId]);
   renderRuntimePreview();
 }
 
@@ -1727,7 +1727,7 @@ runtimeForm?.addEventListener("submit", saveRuntime);
 runtimeSelect?.addEventListener("change", renderRuntimePreview);
 
 try {
-  const storedRuntime = JSON.parse(localStorage.getItem(runtimeStorageKey) || "null");
+  const storedRuntime = JSON.parse(localStorage.getItem(adminRuntimeStorageKey) || "null");
   if (storedRuntime?.agenda) setRuntime(storedRuntime);
 } catch {
   // Keep the default runtime until the backend responds.

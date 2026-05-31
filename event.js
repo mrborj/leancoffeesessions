@@ -23,7 +23,7 @@ let backendTopics = null;
 const participantStorageKey = "leanCoffeeParticipants";
 const topicStorageKey = "leanCoffeeTopics";
 const participantSessionKey = "leanCoffeeParticipantSession";
-const runtimeStorageKey = "leanCoffeeRuntime";
+const eventRuntimeStorageKey = "leanCoffeeRuntime";
 
 const agendaDetails = [
   "Round robin quick introduction",
@@ -33,7 +33,7 @@ const agendaDetails = [
   "Work through overall topics",
   "Last-minute takeaways",
 ];
-let activeRuntime = {
+let eventActiveRuntime = {
   totalMinutes: 12,
   agenda: [
     { title: "Meeting the Entire Team", minutes: 1 },
@@ -81,15 +81,15 @@ async function loadBackendTopics() {
 
 async function loadRuntime() {
   try {
-    const stored = JSON.parse(localStorage.getItem(runtimeStorageKey) || "null");
-    if (stored?.agenda) activeRuntime = stored;
+    const stored = JSON.parse(localStorage.getItem(eventRuntimeStorageKey) || "null");
+    if (stored?.agenda) eventActiveRuntime = stored;
   } catch {}
 
   try {
     const data = await apiRequest("/api/runtime");
     if (data?.runtime) {
-      activeRuntime = data.runtime;
-      localStorage.setItem(runtimeStorageKey, JSON.stringify(activeRuntime));
+      eventActiveRuntime = data.runtime;
+      localStorage.setItem(eventRuntimeStorageKey, JSON.stringify(eventActiveRuntime));
     }
   } catch {
     // Keep local/default runtime.
@@ -184,7 +184,7 @@ function renderParticipant(participant) {
 }
 
 function renderRoadmap() {
-  const agenda = activeRuntime.agenda.map((item, index) => ({
+  const agenda = eventActiveRuntime.agenda.map((item, index) => ({
     title: item.title,
     detail: agendaDetails[index] || "",
     label: `${item.minutes} ${item.minutes === 1 ? "min" : "mins"}`,
@@ -205,7 +205,7 @@ function renderRoadmap() {
       `
     )
     .join("");
-  eventTotal.textContent = `Overall event time: ${activeRuntime.totalMinutes} minutes`;
+  eventTotal.textContent = `Overall event time: ${eventActiveRuntime.totalMinutes} minutes`;
 }
 
 participantLogout.addEventListener("click", () => {
