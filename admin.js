@@ -57,6 +57,32 @@ const readItems = (key) => LeanCoffeeSession.readItems(key);
 const writeItems = (key, items) => LeanCoffeeSession.writeItems(key, items);
 const id = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const isSuperAdmin = adminSession?.role !== "Session Admin";
+let backendAdmins = null;
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+async function loadBackendAdmins() {
+  try {
+    const data = await apiRequest("/api/admins");
+    if (!data) return;
+    backendAdmins = data.admins;
+    renderAdmins();
+    renderKpis();
+    renderSessionOverview();
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+function adminItems() {
+  return backendAdmins || readItems(storageKeys.admins);
+}
 
 function visibleSessions() {
   const sessions = LeanCoffeeSession.sessions();
@@ -146,14 +172,14 @@ function saveParticipant(event) {
   render();
 }
 
-function saveAdmin(event) {
+async function saveAdmin(event) {
   event.preventDefault();
   const admins = readItems(storageKeys.admins);
   const role = formValue(adminForm, "role") || "Super Admin";
   const team = formValue(adminForm, "team");
   if (role === "Session Admin") LeanCoffeeSession.sessionForTeam(team || formValue(adminForm, "username"));
 
-  admins.push({
+  const admin = {
     id: id(),
     username: formValue(adminForm, "username"),
     firstName: formValue(adminForm, "firstName"),
@@ -162,7 +188,26 @@ function saveAdmin(event) {
     role,
     team,
     archived: false,
-  });
+  };
+
+  try {
+    const data = await apiRequest("/api/admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(admin),
+    });
+    if (data?.admin) {
+      backendAdmins = [data.admin, ...(backendAdmins || [])];
+      adminForm.reset();
+      render();
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  admins.push(admin);
 
   writeItems(storageKeys.admins, admins);
   adminForm.reset();
@@ -221,7 +266,7 @@ function renderParticipants() {
 
 function renderAdmins() {
   if (!adminList || !archivedAdmins) return;
-  const admins = readItems(storageKeys.admins);
+  const admins = adminItems();
   const active = admins.filter((admin) => !admin.archived);
 
   adminList.innerHTML = active.length
@@ -543,7 +588,7 @@ function renderSessionOverview() {
   const participants = LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id);
   const topics = LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id);
   const votes = LeanCoffeeSession.readItemsForSession(storageKeys.votes, session.id);
-  const admins = readItems(storageKeys.admins).filter((admin) => sessionIdForName(admin.team || admin.username) === session.id);
+  const admins = adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === session.id);
   const topicTitles = topics.flatMap((entry) =>
     entry.topics.map((topic, index) => ({
       key: `${entry.id}:${index}`,
@@ -658,7 +703,7 @@ function archiveSessionById(sessionId) {
     topics: LeanCoffeeSession.readItemsForSession(storageKeys.topics, sessionId),
     votes: LeanCoffeeSession.readItemsForSession(storageKeys.votes, sessionId),
     participants: LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId),
-    admins: readItems(storageKeys.admins).filter((admin) => sessionIdForName(admin.team || admin.username) === sessionId),
+    admins: adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === sessionId),
   };
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   localStorage.setItem(storageKeys.archivedResults, JSON.stringify([archive, ...archives]));
@@ -720,7 +765,7 @@ function renderKpis() {
     },
     { topics: 0, unselected: 0, votes: 0 }
   );
-  const sessionAdmins = readItems(storageKeys.admins).filter((admin) => (admin.role || "Super Admin") === "Session Admin");
+  const sessionAdmins = adminItems().filter((admin) => (admin.role || "Super Admin") === "Session Admin");
   const managerCounts = sessionAdmins
     .map((admin) => `${admin.firstName || admin.username}: ${admin.team ? 1 : 0}`)
     .join(" | ") || "No Session Admins";
@@ -750,7 +795,7 @@ function renderKpiFilters() {
   const selectedAdmin = kpiAdminFilter.value || "all";
   const sessions = visibleSessions();
   const dates = [...new Set(sessions.map(sessionDate))];
-  const sessionAdmins = readItems(storageKeys.admins).filter((admin) => (admin.role || "Super Admin") === "Session Admin" && !admin.archived);
+  const sessionAdmins = adminItems().filter((admin) => (admin.role || "Super Admin") === "Session Admin" && !admin.archived);
 
   kpiDateFilter.innerHTML = [
     `<option value="all">All Dates</option>`,
@@ -771,7 +816,7 @@ function filteredKpiSessions() {
     sessions = sessions.filter((session) => sessionDate(session) === kpiDateFilter.value);
   }
   if (kpiAdminFilter?.value && kpiAdminFilter.value !== "all") {
-    const admin = readItems(storageKeys.admins).find((entry) => entry.id === kpiAdminFilter.value);
+    const admin = adminItems().find((entry) => entry.id === kpiAdminFilter.value);
     if (admin) {
       const sessionId = sessionAdminSessionId(admin);
       sessions = sessions.filter((session) => session.id === sessionId);
@@ -990,3 +1035,4 @@ kpiAdminFilter?.addEventListener("change", renderKpis);
 
 setConditionalFields();
 render();
+loadBackendAdmins();

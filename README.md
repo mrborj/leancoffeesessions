@@ -42,3 +42,30 @@ npm start
 - Participant login: `http://127.0.0.1:51234/begin.html`
 
 All session data is stored in the browser's local storage.
+
+## PostgreSQL Setup On Render
+
+Create a Render PostgreSQL database, then add its connection string to your web service as:
+
+```text
+DATABASE_URL
+```
+
+To create your first Super Admin automatically, add these environment variables to the Render web service:
+
+```text
+SUPER_ADMIN_USERNAME=admin_stephen
+SUPER_ADMIN_PASSWORD=choose-a-strong-password
+SUPER_ADMIN_FIRST_NAME=Stephen
+SUPER_ADMIN_LAST_NAME=Admin
+```
+
+After saving the environment variables, redeploy the web service. The server will create the `admins` table and seed the first Super Admin if the table is empty.
+
+The app now uses PostgreSQL for:
+
+- Admin login
+- Register Admin
+- Admin View loading
+
+Participants, sessions, topics, votes, and timers still use browser local storage until they are migrated to API routes.
