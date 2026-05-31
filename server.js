@@ -219,12 +219,13 @@ async function loadTopicEntries(sessionId = "") {
   return topicEntryFromRows(result.rows);
 }
 
-async function ensureSessionForAdmin(admin) {
+async function createSessionForAdmin(admin, sessionName) {
   if (admin.role !== "Session Admin") return null;
 
   const team = admin.team_name || admin.username;
-  const sessionId = `session-${slug(team)}`;
-  const sessionName = `${team} Lean Sessions`;
+  const name = String(sessionName || "").trim();
+  if (!name) return null;
+  const sessionId = `session-${slug(name)}-${crypto.randomUUID().slice(0, 8)}`;
   const result = await pool.query(
     `
       INSERT INTO sessions (
@@ -235,15 +236,27 @@ async function ensureSessionForAdmin(admin) {
         status
       )
       VALUES ($1, $2, $3, $4, 'Not Started')
-      ON CONFLICT (id) DO UPDATE
-        SET name = EXCLUDED.name,
-            team_name = EXCLUDED.team_name,
-            admin_id = EXCLUDED.admin_id
       RETURNING *
     `,
-    [sessionId, sessionName, team, admin.id]
+    [sessionId, name, team, admin.id]
   );
   return result.rows[0];
+}
+
+async function primarySessionForAdmin(admin) {
+  if (admin.role !== "Session Admin") return null;
+  const result = await pool.query(
+    `
+      SELECT *
+      FROM sessions
+      WHERE admin_id = $1
+        AND archived = false
+      ORDER BY created_at ASC
+      LIMIT 1
+    `,
+    [admin.id]
+  );
+  return result.rows[0] || null;
 }
 
 async function initializeDatabase() {
@@ -426,7 +439,7 @@ async function handleApi(request, response) {
       return true;
     }
 
-    const session = await ensureSessionForAdmin(admin);
+    const session = await primarySessionForAdmin(admin);
     sendJson(response, 200, {
       ok: true,
       admin: {
@@ -445,9 +458,14 @@ async function handleApi(request, response) {
         sessions.id AS session_id,
         sessions.name AS session_name
       FROM admins
-      LEFT JOIN sessions
-        ON sessions.admin_id = admins.id
-        AND sessions.archived = false
+      LEFT JOIN LATERAL (
+        SELECT id, name
+        FROM sessions
+        WHERE sessions.admin_id = admins.id
+          AND sessions.archived = false
+        ORDER BY sessions.created_at ASC
+        LIMIT 1
+      ) sessions ON true
       ORDER BY admins.created_at DESC
     `);
     sendJson(response, 200, { ok: true, admins: result.rows.map(adminFromRow) });
@@ -457,6 +475,31 @@ async function handleApi(request, response) {
   if (url.pathname === "/api/sessions" && request.method === "GET") {
     const result = await pool.query("SELECT * FROM sessions WHERE archived = false ORDER BY created_at DESC");
     sendJson(response, 200, { ok: true, sessions: result.rows.map(sessionFromRow) });
+    return true;
+  }
+
+  if (url.pathname === "/api/sessions" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const adminId = String(body.adminId || "").trim();
+    const sessionName = String(body.name || body.sessionName || "").trim();
+
+    if (!adminId || !sessionName) {
+      sendJson(response, 400, { ok: false, error: "Session name and Session Manager are required." });
+      return true;
+    }
+
+    const adminResult = await pool.query(
+      "SELECT * FROM admins WHERE id = $1 AND role = 'Session Admin' AND archived = false LIMIT 1",
+      [adminId]
+    );
+    const admin = adminResult.rows[0];
+    if (!admin) {
+      sendJson(response, 400, { ok: false, error: "Session Manager was not found." });
+      return true;
+    }
+
+    const session = await createSessionForAdmin(admin, sessionName);
+    sendJson(response, 201, { ok: true, session: sessionFromRow(session) });
     return true;
   }
 
@@ -490,7 +533,7 @@ async function handleApi(request, response) {
       ]
     );
 
-    const session = await ensureSessionForAdmin(result.rows[0]);
+    const session = await createSessionForAdmin(result.rows[0], body.sessionName);
     sendJson(response, 201, {
       ok: true,
       admin: {

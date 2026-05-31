@@ -31,6 +31,9 @@
 
       <div class="admin-workspace">
         <nav class="admin-pane" aria-label="Admin sections">
+          <button type="button" class="pane-link" data-pane-target="create-session">
+            Create a Session
+          </button>
           <button type="button" class="pane-link is-active" data-pane-target="register-participant">
             Register Participant
           </button>
@@ -64,6 +67,26 @@
         </nav>
 
         <section class="admin-content" aria-live="polite">
+          <form class="admin-card admin-form pane-content" data-pane="create-session" data-create-session-form hidden>
+          <div class="admin-card__header">
+            <h2>Create a Session</h2>
+          </div>
+          <div class="form-grid">
+            <label>
+              Name of Session
+              <input name="sessionName" required />
+            </label>
+            <label>
+              Session Manager
+              <select name="sessionAdminId" required data-create-session-admin></select>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit">Save</button>
+            <a class="button-secondary" href="index.html">Cancel</a>
+          </div>
+        </form>
+
           <form class="admin-card admin-form pane-content is-active" data-pane="register-participant" data-participant-form>
           <div class="admin-card__header">
             <h2>Register Participant</h2>
@@ -103,6 +126,14 @@
               <input name="password" type="password" required />
             </label>
             <label>
+              Session Manager
+              <select name="sessionAdminId" required data-participant-session-admin></select>
+            </label>
+            <label>
+              Name of Session
+              <select name="sessionId" required data-participant-session></select>
+            </label>
+            <label>
               Event Status
               <select name="eventStatus">
                 <option>Not Started</option>
@@ -114,7 +145,7 @@
               <input name="businessUnit" />
             </label>
             <label class="conditional-field" data-other-team-field hidden>
-              Name of Session
+              Specific Team
               <input name="specificTeam" />
             </label>
           </div>
@@ -156,6 +187,10 @@
               Team Name
               <input name="team" />
             </label>
+            <label>
+              Name of Session
+              <input name="sessionName" />
+            </label>
           </div>
           <div class="form-actions">
             <button type="submit">Save</button>
@@ -175,7 +210,7 @@
                 <th>Name</th>
                 <th>Philips Team</th>
                 <th>Team Number</th>
-                <th>Extra Detail</th>
+                <th>Business Unit / Specific Team</th>
                 <th>Name of Session</th>
                 <th>Event Status</th>
                 <th>Actions</th>

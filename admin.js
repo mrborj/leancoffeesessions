@@ -1,5 +1,6 @@
 const participantForm = document.querySelector("[data-participant-form]");
 const adminForm = document.querySelector("[data-admin-form]");
+const createSessionForm = document.querySelector("[data-create-session-form]");
 const participantList = document.querySelector("[data-participant-list]");
 const adminList = document.querySelector("[data-admin-list]");
 const archivedParticipants = document.querySelector("[data-archived-participants]");
@@ -23,6 +24,9 @@ const viewSessionArchive = document.querySelector("[data-view-session-archive]")
 const sessionOverview = document.querySelector("[data-session-overview]");
 const kpiDateFilter = document.querySelector("[data-kpi-date-filter]");
 const kpiAdminFilter = document.querySelector("[data-kpi-admin-filter]");
+const createSessionAdminSelect = document.querySelector("[data-create-session-admin]");
+const participantSessionAdminSelect = document.querySelector("[data-participant-session-admin]");
+const participantSessionSelect = document.querySelector("[data-participant-session]");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
 
@@ -108,13 +112,21 @@ function sessionItemsSource() {
   return backendSessions || LeanCoffeeSession.sessions();
 }
 
+function sessionManagers() {
+  return adminItems().filter((admin) => (admin.role || "Super Admin") === "Session Admin" && !admin.archived);
+}
+
+function sessionsForAdmin(adminId) {
+  return sessionItemsSource().filter((session) => session.adminId === adminId && !session.archived);
+}
+
 function visibleSessions() {
   const sessions = sessionItemsSource();
   const archivedIds = new Set(JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]").map((entry) => entry.sessionId));
   const activeSessions = sessions.filter((session) => !archivedIds.has(session.id));
   return isSuperAdmin
     ? activeSessions
-    : activeSessions.filter((session) => session.id === LeanCoffeeSession.activeSession().id);
+    : activeSessions.filter((session) => session.adminId === adminSession.id || session.id === adminSession.sessionId);
 }
 
 function selectedTopicSessions() {
@@ -167,17 +179,12 @@ function topicSessions() {
   return visibleSessions().filter((session) => sessionItems(storageKeys.topics, session).length > 0);
 }
 
-function sessionAdminSessionId(admin) {
-  return sessionIdForName(admin.team || admin.username);
-}
-
 function sessionCountForAdmin(admin) {
   if ((admin.role || "Super Admin") !== "Session Admin") return 0;
-  const sessionId = sessionAdminSessionId(admin);
-  const activeCount = sessionItemsSource().some((session) => session.id === sessionId) ? 1 : 0;
+  const adminSessions = sessionsForAdmin(admin.id);
   const archivedCount = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]")
-    .filter((entry) => entry.sessionId === sessionId).length;
-  return activeCount + archivedCount;
+    .filter((entry) => adminSessions.some((session) => session.id === entry.sessionId)).length;
+  return adminSessions.length + archivedCount;
 }
 
 function allVisibleItems(key) {
@@ -192,14 +199,121 @@ function setConditionalFields() {
   otherTeamField.querySelector("input").required = team === "Other";
 }
 
+function renderSessionAssignmentControls() {
+  renderCreateSessionManagerOptions();
+  renderParticipantSessionManagerOptions();
+  renderParticipantSessionOptions();
+}
+
+function renderCreateSessionManagerOptions() {
+  if (!createSessionAdminSelect) return;
+  const managers = sessionManagers();
+  if (!managers.length) {
+    createSessionAdminSelect.innerHTML = `<option value="">No Session Manager Exists</option>`;
+    createSessionAdminSelect.disabled = true;
+    return;
+  }
+  createSessionAdminSelect.disabled = false;
+  createSessionAdminSelect.innerHTML = managers
+    .map((admin) => `<option value="${escapeHtml(admin.id)}">${escapeHtml(`${admin.firstName || admin.username} ${admin.lastName || ""}`.trim())}</option>`)
+    .join("");
+}
+
+function renderParticipantSessionManagerOptions() {
+  if (!participantSessionAdminSelect) return;
+  const managers = sessionManagers();
+  if (!managers.length) {
+    participantSessionAdminSelect.innerHTML = `<option value="">No Session Manager Exists</option>`;
+    participantSessionAdminSelect.disabled = true;
+    return;
+  }
+  const currentValue = participantSessionAdminSelect.value;
+  participantSessionAdminSelect.disabled = false;
+  participantSessionAdminSelect.innerHTML = managers
+    .map((admin) => `<option value="${escapeHtml(admin.id)}">${escapeHtml(`${admin.firstName || admin.username} ${admin.lastName || ""}`.trim())}</option>`)
+    .join("");
+  participantSessionAdminSelect.value = managers.some((admin) => admin.id === currentValue) ? currentValue : managers[0].id;
+}
+
+function renderParticipantSessionOptions() {
+  if (!participantSessionSelect) return;
+  const managerId = participantSessionAdminSelect ? participantSessionAdminSelect.value : adminSession.id;
+  const sessions = isSuperAdmin
+    ? sessionsForAdmin(managerId)
+    : visibleSessions();
+  const selectableSessions = sessions.filter((session) => session.status !== "Concluded" && !session.archived);
+
+  if (!selectableSessions.length) {
+    participantSessionSelect.innerHTML = `<option value="">No Sessions Available</option>`;
+    participantSessionSelect.disabled = true;
+    return;
+  }
+
+  const currentValue = participantSessionSelect.value;
+  participantSessionSelect.disabled = false;
+  participantSessionSelect.innerHTML = selectableSessions
+    .map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.name)}</option>`)
+    .join("");
+  participantSessionSelect.value = selectableSessions.some((session) => session.id === currentValue)
+    ? currentValue
+    : selectableSessions[0].id;
+}
+
 function formValue(form, name) {
   return String(new FormData(form).get(name) || "").trim();
+}
+
+function selectedParticipantSession() {
+  const sessionId = formValue(participantForm, "sessionId");
+  return visibleSessions().find((session) => session.id === sessionId) || null;
+}
+
+async function saveSession(event) {
+  event.preventDefault();
+  const sessionName = formValue(createSessionForm, "sessionName");
+  const adminId = isSuperAdmin ? formValue(createSessionForm, "sessionAdminId") : adminSession.id;
+
+  try {
+    const data = await apiRequest("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: sessionName, adminId }),
+    });
+    if (data?.session) {
+      backendSessions = [data.session, ...(backendSessions || []).filter((session) => session.id !== data.session.id)];
+      LeanCoffeeSession.saveSession(data.session);
+      if (!isSuperAdmin && !LeanCoffeeSession.activeSession()?.id) LeanCoffeeSession.setActiveSession(data.session);
+      createSessionForm.reset();
+      render();
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const manager = adminItems().find((admin) => admin.id === adminId) || adminSession;
+  const session = LeanCoffeeSession.saveSession({
+    id: `session-${id()}`,
+    name: sessionName,
+    team: manager.team || manager.username,
+    adminId,
+    status: "Not Started",
+  });
+  backendSessions = backendSessions ? [session, ...backendSessions] : null;
+  createSessionForm.reset();
+  render();
 }
 
 async function saveParticipant(event) {
   event.preventDefault();
   const participants = readItems(storageKeys.participants);
   const team = formValue(participantForm, "philipsTeam");
+  const selectedSession = selectedParticipantSession();
+  if (!selectedSession) {
+    alert("Please select a Name of Session before saving the participant.");
+    return;
+  }
 
   const participant = {
     id: id(),
@@ -211,8 +325,8 @@ async function saveParticipant(event) {
     password: formValue(participantForm, "password"),
     businessUnit: team === "Comm Sales" ? formValue(participantForm, "businessUnit") : "",
     specificTeam: team === "Other" ? formValue(participantForm, "specificTeam") : "",
-    sessionId: LeanCoffeeSession.activeSession().id,
-    sessionName: LeanCoffeeSession.activeSession().name,
+    sessionId: selectedSession.id,
+    sessionName: selectedSession.name,
     eventStatus: formValue(participantForm, "eventStatus") || "Not Started",
     archived: false,
   };
@@ -248,7 +362,6 @@ async function saveAdmin(event) {
   const admins = readItems(storageKeys.admins);
   const role = formValue(adminForm, "role") || "Super Admin";
   const team = formValue(adminForm, "team");
-  if (role === "Session Admin") LeanCoffeeSession.sessionForTeam(team || formValue(adminForm, "username"));
 
   const admin = {
     id: id(),
@@ -258,6 +371,7 @@ async function saveAdmin(event) {
     password: formValue(adminForm, "password"),
     role,
     team,
+    sessionName: formValue(adminForm, "sessionName"),
     archived: false,
   };
 
@@ -274,6 +388,8 @@ async function saveAdmin(event) {
           id: data.admin.sessionId,
           name: data.admin.sessionName,
           team: data.admin.team,
+          adminId: data.admin.id,
+          status: "Not Started",
         });
         backendSessions = [session, ...(backendSessions || []).filter((item) => item.id !== session.id)];
       }
@@ -287,6 +403,15 @@ async function saveAdmin(event) {
   }
 
   admins.push(admin);
+  if (role === "Session Admin" && admin.sessionName) {
+    LeanCoffeeSession.saveSession({
+      id: `session-${id()}`,
+      name: admin.sessionName,
+      team: team || admin.username,
+      adminId: admin.id,
+      status: "Not Started",
+    });
+  }
 
   writeItems(storageKeys.admins, admins);
   adminForm.reset();
@@ -306,9 +431,10 @@ function escapeHtml(value) {
 }
 
 function renderParticipants() {
+  const visibleSessionIds = new Set(visibleSessions().map((session) => session.id));
   const participants = backendParticipants
-    ? (isSuperAdmin ? backendParticipants : backendParticipants.filter((participant) => participant.sessionId === LeanCoffeeSession.activeSession().id))
-    : (isSuperAdmin ? allVisibleItems(storageKeys.participants) : readItems(storageKeys.participants));
+    ? (isSuperAdmin ? backendParticipants : backendParticipants.filter((participant) => visibleSessionIds.has(participant.sessionId)))
+    : (isSuperAdmin ? allVisibleItems(storageKeys.participants) : allVisibleItems(storageKeys.participants));
   const active = participants.filter((participant) => !participant.archived);
 
   participantList.innerHTML = active.length
@@ -388,10 +514,9 @@ function renderAdmins() {
 }
 
 function renderAdminSessionDetails(admin) {
-  const sessionId = sessionAdminSessionId(admin);
-  const activeSessions = sessionItemsSource().filter((session) => session.id === sessionId);
+  const activeSessions = sessionsForAdmin(admin.id);
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]")
-    .filter((entry) => entry.sessionId === sessionId)
+    .filter((entry) => activeSessions.some((session) => session.id === entry.sessionId))
     .map((entry) => ({
       id: entry.sessionId,
       name: entry.sessionName,
@@ -424,23 +549,20 @@ function renderAdminSessionDetails(admin) {
   `;
 }
 
-function sessionIdForName(name) {
-  return LeanCoffeeSession.sessionForTeam(name || "Master Data").id;
-}
-
 function adminEventStatus(admin) {
   if ((admin.role || "Super Admin") !== "Session Admin") return "Super Admin";
-  const sessionId = sessionIdForName(admin.team || admin.username);
-  const backendSession = backendSessions?.find((session) => session.id === sessionId);
-  if (backendSession?.status === "Concluded") return "Concluded";
-  if (backendSession?.status === "Ongoing") return "Ongoing";
+  const adminSessions = sessionsForAdmin(admin.id);
+  if (!adminSessions.length) return "Not Started";
+  if (adminSessions.some((session) => session.status === "Ongoing")) return "Ongoing";
   const archived = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
-  if (archived.some((entry) => entry.sessionId === sessionId)) return "Concluded";
+  if (adminSessions.every((session) => session.status === "Concluded" || archived.some((entry) => entry.sessionId === session.id))) {
+    return "Concluded";
+  }
 
-  const timer = JSON.parse(localStorage.getItem(LeanCoffeeSession.keyForSession(storageKeys.timer, sessionId)) || "null");
-  if (!timer) return "Not Started";
-  if (timer.concluded) return "Concluded";
-  if (timer.running || timer.countdownEndAt || timer.remaining < timer.duration) return "Ongoing";
+  const timers = adminSessions
+    .map((session) => JSON.parse(localStorage.getItem(LeanCoffeeSession.keyForSession(storageKeys.timer, session.id)) || "null"))
+    .filter(Boolean);
+  if (timers.some((timer) => timer.running || timer.countdownEndAt || timer.remaining < timer.duration)) return "Ongoing";
   return "Not Started";
 }
 
@@ -604,8 +726,9 @@ function renderActiveArchivePreview() {
 function renderArchivedResults() {
   if (!archivedResults) return;
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
+  const visibleSessionIds = new Set(visibleSessions().map((session) => session.id));
   const visibleArchives = adminSession?.role === "Session Admin"
-    ? archives.filter((entry) => entry.sessionId === LeanCoffeeSession.activeSession().id)
+    ? archives.filter((entry) => visibleSessionIds.has(entry.sessionId))
     : archives;
 
   archivedResults.innerHTML = visibleArchives.length
@@ -676,7 +799,7 @@ function renderSessionOverview() {
     : LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id);
   const topics = sessionItems(storageKeys.topics, session);
   const votes = sessionItems(storageKeys.votes, session);
-  const admins = adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === session.id);
+  const admins = adminItems().filter((admin) => admin.id === session.adminId);
   const topicTitles = topics.flatMap((entry) =>
     entry.topics.map((topic, index) => ({
       key: `${entry.id}:${index}`,
@@ -793,7 +916,7 @@ function archiveSessionById(sessionId) {
     participants: backendParticipants
       ? backendParticipants.filter((participant) => participant.sessionId === sessionId)
       : LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId),
-    admins: adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === sessionId),
+    admins: adminItems().filter((admin) => admin.id === session.adminId),
   };
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   localStorage.setItem(storageKeys.archivedResults, JSON.stringify([archive, ...archives]));
@@ -928,8 +1051,7 @@ function filteredKpiSessions() {
   if (kpiAdminFilter?.value && kpiAdminFilter.value !== "all") {
     const admin = adminItems().find((entry) => entry.id === kpiAdminFilter.value);
     if (admin) {
-      const sessionId = sessionAdminSessionId(admin);
-      sessions = sessions.filter((session) => session.id === sessionId);
+      sessions = sessions.filter((session) => session.adminId === admin.id);
     }
   }
   return sessions;
@@ -1129,6 +1251,7 @@ function toggleAdminSessions(adminId) {
 }
 
 function render() {
+  renderSessionAssignmentControls();
   renderParticipants();
   renderAdmins();
   renderTopicFilterOptions();
@@ -1157,6 +1280,8 @@ function showPane(paneName) {
 teamSelect.addEventListener("change", setConditionalFields);
 participantForm.addEventListener("submit", saveParticipant);
 adminForm?.addEventListener("submit", saveAdmin);
+createSessionForm?.addEventListener("submit", saveSession);
+participantSessionAdminSelect?.addEventListener("change", renderParticipantSessionOptions);
 document.addEventListener("click", handleTableAction);
 paneLinks.forEach((link) => {
   link.addEventListener("click", () => showPane(link.dataset.paneTarget));

@@ -18,10 +18,15 @@ async function apiLogin(username, password) {
 
 function saveAdminSession(matchingAdmin) {
   const role = matchingAdmin.role || "Super Admin";
-  const session = role === "Session Admin"
-    ? LeanCoffeeSession.sessionForTeam(matchingAdmin.team || matchingAdmin.philipsTeam || matchingAdmin.username)
+  const session = role === "Session Admin" && matchingAdmin.sessionId
+    ? {
+        id: matchingAdmin.sessionId,
+        name: matchingAdmin.sessionName,
+        team: matchingAdmin.team || matchingAdmin.sessionName,
+        adminId: matchingAdmin.id,
+      }
     : LeanCoffeeSession.defaultSession;
-  LeanCoffeeSession.setActiveSession(session);
+  if (role !== "Session Admin" || matchingAdmin.sessionId) LeanCoffeeSession.setActiveSession(session);
   sessionStorage.setItem(
     "leanCoffeeAdminSession",
     JSON.stringify({
@@ -31,8 +36,8 @@ function saveAdminSession(matchingAdmin) {
       lastName: matchingAdmin.lastName,
       role,
       team: matchingAdmin.team || "",
-      sessionId: session.id,
-      sessionName: session.name,
+      sessionId: role === "Session Admin" ? (matchingAdmin.sessionId || "") : session.id,
+      sessionName: role === "Session Admin" ? (matchingAdmin.sessionName || "") : session.name,
     })
   );
   loginPanel.classList.add("is-authenticated");
