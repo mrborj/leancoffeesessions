@@ -27,6 +27,11 @@ const kpiAdminFilter = document.querySelector("[data-kpi-admin-filter]");
 const createSessionAdminSelect = document.querySelector("[data-create-session-admin]");
 const participantSessionAdminSelect = document.querySelector("[data-participant-session-admin]");
 const participantSessionSelect = document.querySelector("[data-participant-session]");
+const deleteTypeSelect = document.querySelector("[data-delete-type]");
+const deleteRecordSelect = document.querySelector("[data-delete-record]");
+const deleteDataButton = document.querySelector("[data-delete-data-button]");
+const deletePreview = document.querySelector("[data-delete-preview]");
+const allSessionsView = document.querySelector("[data-all-sessions]");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
 
@@ -681,6 +686,12 @@ function renderTopicFilterOptions() {
 function renderArchiveOptions() {
   if (!archiveSessionSelect) return;
   const sessions = availableArchiveSessions();
+  if (!sessions.length) {
+    archiveSessionSelect.innerHTML = `<option value="">No Sessions Available</option>`;
+    archiveSessionSelect.disabled = true;
+    return;
+  }
+  archiveSessionSelect.disabled = false;
   archiveSessionSelect.innerHTML = sessions
     .map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.name)}</option>`)
     .join("");
@@ -894,6 +905,162 @@ function renderSessionOverview() {
       </div>
     </article>
   `;
+}
+
+function renderAllSessions() {
+  if (!allSessionsView) return;
+  const sessions = visibleSessions();
+  if (!sessions.length) {
+    allSessionsView.innerHTML = `<div class="archive-item archive-item--empty">No sessions created yet.</div>`;
+    return;
+  }
+
+  allSessionsView.innerHTML = sessions
+    .map((session) => {
+      const participants = sessionItems(storageKeys.participants, session);
+      const topics = sessionItems(storageKeys.topics, session);
+      const votes = sessionItems(storageKeys.votes, session);
+      return `
+        <article class="topic-entry">
+          <div class="topic-entry__meta">
+            <span>${escapeHtml(session.name)} - ${escapeHtml(sessionStatus(session))}</span>
+            <small>${escapeHtml(sessionDate(session))}</small>
+          </div>
+          <div class="kpi-grid">
+            <article class="kpi-card"><span>Participants</span><strong>${escapeHtml(participants.length)}</strong></article>
+            <article class="kpi-card"><span>Topics</span><strong>${escapeHtml(topics.length)}</strong></article>
+            <article class="kpi-card"><span>Votes</span><strong>${escapeHtml(votes.length)}</strong></article>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function deleteRecords() {
+  const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
+  const topics = allVisibleItems(storageKeys.topics);
+  const votes = allVisibleItems(storageKeys.votes);
+  return {
+    admins: sessionManagers().map((admin) => ({
+      id: admin.id,
+      label: `${admin.firstName || admin.username} ${admin.lastName || ""} - ${admin.username}`,
+      detail: "Deleting a Session Admin also deletes all assigned sessions, participants, topics, votes, and timer data.",
+    })),
+    participants: allVisibleItems(storageKeys.participants).map((participant) => ({
+      id: participant.id,
+      label: `${participant.firstName || ""} ${participant.lastName || ""} - ${participant.email}`,
+      detail: `${participant.sessionName || "No session"} - Team ${participant.teamNumber || ""}`,
+    })),
+    topics: topics.map((entry) => ({
+      id: entry.id,
+      label: `${entry.sessionName || "Session"} - ${entry.firstName || ""} ${entry.lastName || ""}`,
+      detail: entry.topics.map((topic) => topic.title || topic.details || "Untitled").join(" | ") || "No topic details",
+    })),
+    votes: votes.map((vote) => ({
+      id: vote.id,
+      label: `${vote.firstName || ""} ${vote.lastName || ""} - Team ${vote.teamNumber || ""}`,
+      detail: `${vote.sessionName || "Session"} - ${vote.topicKey || ""}`,
+    })),
+    archived: archives.map((archive) => ({
+      id: archive.id,
+      label: `${archive.sessionName || "Archived file"} - ${archive.archivedAt || ""}`,
+      detail: `${archive.topics?.length || 0} topic submissions - ${archive.votes?.length || 0} votes`,
+    })),
+  };
+}
+
+function renderDeleteData() {
+  if (!deleteTypeSelect || !deleteRecordSelect || !deletePreview) return;
+  const type = deleteTypeSelect.value || "admins";
+  const records = deleteRecords()[type] || [];
+
+  if (!records.length) {
+    deleteRecordSelect.innerHTML = `<option value="">No Records Available</option>`;
+    deleteRecordSelect.disabled = true;
+    if (deleteDataButton) deleteDataButton.disabled = true;
+    deletePreview.innerHTML = `<div class="archive-item archive-item--empty">No records available for this data type.</div>`;
+    return;
+  }
+
+  const currentValue = deleteRecordSelect.value;
+  deleteRecordSelect.disabled = false;
+  if (deleteDataButton) deleteDataButton.disabled = false;
+  deleteRecordSelect.innerHTML = records
+    .map((record) => `<option value="${escapeHtml(record.id)}">${escapeHtml(record.label)}</option>`)
+    .join("");
+  deleteRecordSelect.value = records.some((record) => record.id === currentValue) ? currentValue : records[0].id;
+
+  const selected = records.find((record) => record.id === deleteRecordSelect.value);
+  deletePreview.innerHTML = selected
+    ? `<div class="archive-item"><strong>${escapeHtml(selected.label)}</strong><span>${escapeHtml(selected.detail)}</span></div>`
+    : `<div class="archive-item archive-item--empty">Select a record to review.</div>`;
+}
+
+async function deleteSelectedData() {
+  if (!deleteTypeSelect || !deleteRecordSelect || !deleteRecordSelect.value) return;
+  const type = deleteTypeSelect.value;
+  const recordId = deleteRecordSelect.value;
+  const records = deleteRecords()[type] || [];
+  const record = records.find((entry) => entry.id === recordId);
+  const confirmed = window.confirm(`Delete ${record?.label || "this record"}? This cannot be undone.`);
+  if (!confirmed) return;
+
+  if (type === "archived") {
+    deleteArchiveRecord(recordId);
+    renderDeleteData();
+    return;
+  }
+
+  try {
+    const data = await apiRequest("/api/delete-data", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, id: recordId }),
+    });
+    if (data) {
+      removeDeletedDataLocally(type, recordId);
+      render();
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  removeDeletedDataLocally(type, recordId);
+  render();
+}
+
+function removeDeletedDataLocally(type, recordId) {
+  if (type === "admins") {
+    const admin = adminItems().find((item) => item.id === recordId);
+    const sessionIds = sessionsForAdmin(recordId).map((session) => session.id);
+    backendAdmins = backendAdmins ? backendAdmins.filter((item) => item.id !== recordId) : backendAdmins;
+    backendSessions = backendSessions ? backendSessions.filter((session) => !sessionIds.includes(session.id)) : backendSessions;
+    backendParticipants = backendParticipants ? backendParticipants.filter((participant) => !sessionIds.includes(participant.sessionId)) : backendParticipants;
+    backendTopics = backendTopics ? backendTopics.filter((topic) => !sessionIds.includes(topic.sessionId)) : backendTopics;
+    backendVotes = backendVotes ? backendVotes.filter((vote) => !sessionIds.includes(vote.sessionId)) : backendVotes;
+    writeItems(storageKeys.admins, readItems(storageKeys.admins).filter((item) => item.id !== recordId));
+    if (admin) sessionIds.forEach((sessionId) => {
+      LeanCoffeeSession.removeItemForSession(storageKeys.participants, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.timer, sessionId);
+    });
+    return;
+  }
+  if (type === "participants") {
+    backendParticipants = backendParticipants ? backendParticipants.filter((participant) => participant.id !== recordId) : backendParticipants;
+    return;
+  }
+  if (type === "topics") {
+    backendTopics = backendTopics ? backendTopics.filter((topic) => topic.id !== recordId) : backendTopics;
+    return;
+  }
+  if (type === "votes") {
+    backendVotes = backendVotes ? backendVotes.filter((vote) => vote.id !== recordId) : backendVotes;
+  }
 }
 
 function archiveSelectedSession() {
@@ -1261,8 +1428,10 @@ function render() {
   renderArchivedResults();
   renderSessionOptions();
   renderSessionOverview();
+  renderAllSessions();
   renderKpiFilters();
   renderKpis();
+  renderDeleteData();
 }
 
 function showPane(paneName) {
@@ -1307,6 +1476,9 @@ viewSessionArchive?.addEventListener("click", () => {
 });
 kpiDateFilter?.addEventListener("change", renderKpis);
 kpiAdminFilter?.addEventListener("change", renderKpis);
+deleteTypeSelect?.addEventListener("change", renderDeleteData);
+deleteRecordSelect?.addEventListener("change", renderDeleteData);
+deleteDataButton?.addEventListener("click", deleteSelectedData);
 
 setConditionalFields();
 render();

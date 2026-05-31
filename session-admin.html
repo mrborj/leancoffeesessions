@@ -31,11 +31,11 @@
 
       <div class="admin-workspace">
         <nav class="admin-pane" aria-label="Session admin sections">
+          <button type="button" class="pane-link is-active" data-pane-target="register-participant">
+            Register a Participant
+          </button>
           <button type="button" class="pane-link" data-pane-target="create-session">
             Create a Session
-          </button>
-          <button type="button" class="pane-link is-active" data-pane-target="register-participant">
-            Register Participant
           </button>
           <button type="button" class="pane-link" data-pane-target="participant-view">
             Participant View
@@ -43,11 +43,14 @@
           <button type="button" class="pane-link" data-pane-target="show-topics">
             Show Topics
           </button>
+          <button type="button" class="pane-link" data-pane-target="archived-participants">
+            Archived Participants
+          </button>
           <button type="button" class="pane-link" data-pane-target="archive-topics">
             Archive Topics and Votes
           </button>
-          <button type="button" class="pane-link" data-pane-target="archived-participants">
-            Archived Participants
+          <button type="button" class="pane-link" data-pane-target="view-all-sessions">
+            View All Sessions
           </button>
         </nav>
 
@@ -191,6 +194,13 @@
             </div>
             <div data-active-archive-preview class="topic-list"></div>
             <div data-archived-results class="topic-list"></div>
+          </section>
+
+          <section class="admin-card data-view pane-content" data-pane="view-all-sessions" hidden>
+            <div class="admin-card__header">
+              <h2>View All Sessions</h2>
+            </div>
+            <div data-all-sessions class="session-overview"></div>
           </section>
         </section>
       </div>

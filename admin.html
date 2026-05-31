@@ -31,38 +31,38 @@
 
       <div class="admin-workspace">
         <nav class="admin-pane" aria-label="Admin sections">
+          <button type="button" class="pane-link is-active" data-pane-target="register-admin">
+            Register Admin
+          </button>
+          <button type="button" class="pane-link" data-pane-target="register-participant">
+            Register Participant
+          </button>
           <button type="button" class="pane-link" data-pane-target="create-session">
             Create a Session
           </button>
-          <button type="button" class="pane-link is-active" data-pane-target="register-participant">
-            Register Participant
-          </button>
-          <button type="button" class="pane-link" data-pane-target="kpis">
-            KPIs
-          </button>
-          <button type="button" class="pane-link" data-pane-target="view-sessions">
-            View Sessions
-          </button>
-          <button type="button" class="pane-link" data-pane-target="register-admin">
-            Register Admin
+          <button type="button" class="pane-link" data-pane-target="admin-view">
+            View Admins
           </button>
           <button type="button" class="pane-link" data-pane-target="participant-view">
-            Participant View
+            View Participants
           </button>
           <button type="button" class="pane-link" data-pane-target="show-topics">
             Show Topics
           </button>
-          <button type="button" class="pane-link" data-pane-target="archive-topics">
-            Archive Topics and Votes
-          </button>
-          <button type="button" class="pane-link" data-pane-target="admin-view">
-            Admin View
+          <button type="button" class="pane-link" data-pane-target="archived-admins">
+            Archived Admins
           </button>
           <button type="button" class="pane-link" data-pane-target="archived-participants">
             Archived Participants
           </button>
-          <button type="button" class="pane-link" data-pane-target="archived-admins">
-            Archived Admins
+          <button type="button" class="pane-link" data-pane-target="archive-topics">
+            Archived Topics and Votes
+          </button>
+          <button type="button" class="pane-link" data-pane-target="kpis">
+            KPI
+          </button>
+          <button type="button" class="pane-link" data-pane-target="delete-data">
+            Delete Data
           </button>
         </nav>
 
@@ -87,7 +87,7 @@
           </div>
         </form>
 
-          <form class="admin-card admin-form pane-content is-active" data-pane="register-participant" data-participant-form>
+          <form class="admin-card admin-form pane-content" data-pane="register-participant" data-participant-form hidden>
           <div class="admin-card__header">
             <h2>Register Participant</h2>
           </div>
@@ -155,7 +155,7 @@
           </div>
         </form>
 
-          <form class="admin-card admin-form pane-content" data-pane="register-admin" data-admin-form hidden>
+          <form class="admin-card admin-form pane-content is-active" data-pane="register-admin" data-admin-form>
           <div class="admin-card__header">
             <h2>Register Admin</h2>
           </div>
@@ -319,6 +319,30 @@
         </div>
         <div data-active-archive-preview class="topic-list"></div>
         <div data-archived-results class="topic-list"></div>
+      </section>
+
+          <section class="admin-card data-view pane-content" data-pane="delete-data" hidden>
+        <div class="admin-card__header">
+          <h2>Delete Data</h2>
+        </div>
+        <div class="topic-tools">
+          <label>
+            Data Type
+            <select name="deleteType" data-delete-type>
+              <option value="admins">Session Admin</option>
+              <option value="participants">Participant</option>
+              <option value="topics">Topics</option>
+              <option value="votes">Votes</option>
+              <option value="archived">Archived Files</option>
+            </select>
+          </label>
+          <label>
+            Record
+            <select name="deleteRecord" data-delete-record></select>
+          </label>
+          <button type="button" class="button-secondary" data-delete-data-button>Delete Selected</button>
+        </div>
+        <div data-delete-preview class="topic-list"></div>
       </section>
         </section>
       </div>

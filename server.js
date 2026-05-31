@@ -259,6 +259,16 @@ async function primarySessionForAdmin(admin) {
   return result.rows[0] || null;
 }
 
+async function deleteSessionData(client, sessionIds) {
+  if (!sessionIds.length) return;
+  await client.query("DELETE FROM timer_states WHERE session_id = ANY($1)", [sessionIds]);
+  await client.query("DELETE FROM votes WHERE session_id = ANY($1)", [sessionIds]);
+  await client.query("DELETE FROM topics WHERE submission_id IN (SELECT id FROM topic_submissions WHERE session_id = ANY($1))", [sessionIds]);
+  await client.query("DELETE FROM topic_submissions WHERE session_id = ANY($1)", [sessionIds]);
+  await client.query("DELETE FROM participants WHERE session_id = ANY($1)", [sessionIds]);
+  await client.query("DELETE FROM sessions WHERE id = ANY($1)", [sessionIds]);
+}
+
 async function initializeDatabase() {
   if (!pool) {
     console.log("DATABASE_URL is not set. Running without PostgreSQL.");
@@ -564,6 +574,52 @@ async function handleApi(request, response) {
     }
 
     sendJson(response, 200, { ok: true, admin: adminFromRow(result.rows[0]) });
+    return true;
+  }
+
+  if (url.pathname === "/api/delete-data" && request.method === "DELETE") {
+    const body = await readRequestBody(request);
+    const type = String(body.type || "");
+    const id = String(body.id || "");
+
+    if (!type || !id) {
+      sendJson(response, 400, { ok: false, error: "Data type and record are required." });
+      return true;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      if (type === "admins") {
+        const sessionResult = await client.query("SELECT id FROM sessions WHERE admin_id = $1", [id]);
+        const sessionIds = sessionResult.rows.map((row) => row.id);
+        await deleteSessionData(client, sessionIds);
+        await client.query("DELETE FROM admins WHERE id = $1 AND role = 'Session Admin'", [id]);
+      } else if (type === "participants") {
+        await client.query("DELETE FROM participants WHERE id = $1", [id]);
+      } else if (type === "topics") {
+        await client.query("DELETE FROM votes WHERE topic_key LIKE $1", [`${id}:%`]);
+        await client.query("DELETE FROM topics WHERE submission_id = $1", [id]);
+        await client.query("DELETE FROM topic_submissions WHERE id = $1", [id]);
+      } else if (type === "votes") {
+        await client.query("DELETE FROM votes WHERE id = $1", [id]);
+      } else if (type === "sessions") {
+        await deleteSessionData(client, [id]);
+      } else {
+        await client.query("ROLLBACK");
+        sendJson(response, 400, { ok: false, error: "Unsupported data type." });
+        return true;
+      }
+
+      await client.query("COMMIT");
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
     return true;
   }
 

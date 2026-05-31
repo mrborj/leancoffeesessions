@@ -7,6 +7,16 @@
   --ink: #1d1716;
 }
 
+@font-face {
+  font-family: "Mrsborj";
+  src:
+    url("assets/Mrsborj-Regular.ttf") format("truetype"),
+    url("assets/Mrsborj-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -22,7 +32,7 @@ body {
   background:
     radial-gradient(circle at 12% 6%, rgba(11, 94, 215, 0.35), transparent 34rem),
     linear-gradient(135deg, #19100f 0%, var(--coffee-dark) 46%, #0a3479 100%);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Mrsborj", Arial, Helvetica, sans-serif;
 }
 
 a {
@@ -422,9 +432,10 @@ h1 {
 .admin-console {
   position: relative;
   z-index: 1;
-  width: min(1760px, calc(100vw - 1rem));
+  width: min(1760px, calc(100vw - 2.5rem));
   margin: 0 auto;
   overflow: visible;
+  padding-inline: 0.75rem 1.75rem;
 }
 
 .admin-header {
@@ -448,7 +459,7 @@ h1 {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.65rem;
-  max-width: 34rem;
+  max-width: min(48rem, 100%);
 }
 
 .admin-home,
@@ -957,6 +968,7 @@ td {
 
 .timer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
 }
 
