@@ -225,6 +225,10 @@ function resetTimer() {
   writeTimer(defaultTimer());
   sessionStorage.removeItem(adminConclusionClosedKey());
   renderTimer();
+  if (isAdminLiveView() && window.location.pathname.toLowerCase().endsWith("/admin-live.html")) {
+    const admin = timerSession.adminSession();
+    window.location.href = admin?.role === "Session Admin" ? "session-admin.html" : "admin.html";
+  }
 }
 
 function shouldChooseSessionBeforeStart(sessions) {

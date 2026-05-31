@@ -32,6 +32,7 @@ const deleteRecordSelect = document.querySelector("[data-delete-record]");
 const deleteDataButton = document.querySelector("[data-delete-data-button]");
 const deletePreview = document.querySelector("[data-delete-preview]");
 const allSessionsView = document.querySelector("[data-all-sessions]");
+const ongoingSessionLink = document.querySelector("[data-ongoing-session-link]");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
 
@@ -454,7 +455,7 @@ function renderParticipants() {
               <td data-field="teamNumber">${escapeHtml(participant.teamNumber)}</td>
               <td data-field="extra">${escapeHtml(extra)}</td>
               <td data-field="sessionName">${escapeHtml(participant.sessionName || LeanCoffeeSession.activeSession().name)}</td>
-              <td data-field="eventStatus">${escapeHtml(participant.eventStatus || "Not Started")}</td>
+              <td data-field="eventStatus">${escapeHtml(participantEventStatus(participant))}</td>
               <td class="row-actions">
                 <button type="button" data-action="edit">Edit</button>
                 <button type="button" data-action="save" hidden>Save</button>
@@ -470,7 +471,7 @@ function renderParticipants() {
     participants.filter((participant) => participant.archived),
     (participant) => {
       const extra = participant.businessUnit || participant.specificTeam || "No extra detail";
-      return `${participant.email} - ${participant.firstName} ${participant.lastName} - ${participant.philipsTeam} - Team ${participant.teamNumber} - ${extra} - ${participant.sessionName || LeanCoffeeSession.activeSession().name} - ${participant.eventStatus || "Not Started"}`;
+      return `${participant.email} - ${participant.firstName} ${participant.lastName} - ${participant.philipsTeam} - Team ${participant.teamNumber} - ${extra} - ${participant.sessionName || LeanCoffeeSession.activeSession().name} - ${participantEventStatus(participant)}`;
     },
     storageKeys.participants
   );
@@ -581,6 +582,16 @@ function sessionStatus(session) {
   if (!timer) return "Not Started";
   if (timer.concluded) return "Concluded";
   if (timer.running || timer.countdownEndAt || timer.remaining < timer.duration) return "Active";
+  return "Not Started";
+}
+
+function participantEventStatus(participant) {
+  if (participant.eventStatus === "Completed" || participant.eventStatus === "Concluded") return "Concluded";
+  const session = sessionItemsSource().find((item) => item.id === participant.sessionId);
+  if (!session) return participant.eventStatus || "Not Started";
+  const status = sessionStatus(session);
+  if (status === "Active") return "Ongoing";
+  if (status === "Concluded") return "Concluded";
   return "Not Started";
 }
 
@@ -937,6 +948,20 @@ function renderAllSessions() {
     .join("");
 }
 
+function renderOngoingSessionLink() {
+  if (!ongoingSessionLink) return;
+  const ongoingSession = visibleSessions().find((session) => sessionStatus(session) === "Active");
+  if (!ongoingSession) {
+    ongoingSessionLink.hidden = true;
+    return;
+  }
+  ongoingSessionLink.hidden = false;
+  ongoingSessionLink.textContent = `Go back to Ongoing Session`;
+  ongoingSessionLink.onclick = () => {
+    LeanCoffeeSession.setActiveSession(ongoingSession);
+  };
+}
+
 function deleteRecords() {
   const archives = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   const topics = allVisibleItems(storageKeys.topics);
@@ -967,6 +992,11 @@ function deleteRecords() {
       label: `${archive.sessionName || "Archived file"} - ${archive.archivedAt || ""}`,
       detail: `${archive.topics?.length || 0} topic submissions - ${archive.votes?.length || 0} votes`,
     })),
+    sessions: visibleSessions().map((session) => ({
+      id: session.id,
+      label: `${session.name} - ${sessionStatus(session)}`,
+      detail: `${sessionItems(storageKeys.participants, session).length} participants - ${sessionItems(storageKeys.topics, session).length} topic submissions - ${sessionItems(storageKeys.votes, session).length} votes`,
+    })),
   };
 }
 
@@ -991,10 +1021,107 @@ function renderDeleteData() {
     .join("");
   deleteRecordSelect.value = records.some((record) => record.id === currentValue) ? currentValue : records[0].id;
 
-  const selected = records.find((record) => record.id === deleteRecordSelect.value);
-  deletePreview.innerHTML = selected
-    ? `<div class="archive-item"><strong>${escapeHtml(selected.label)}</strong><span>${escapeHtml(selected.detail)}</span></div>`
-    : `<div class="archive-item archive-item--empty">Select a record to review.</div>`;
+  deletePreview.innerHTML = renderDeletePreviewCard(type, deleteRecordSelect.value);
+}
+
+function renderDeletePreviewCard(type, recordId) {
+  if (!recordId) return `<div class="archive-item archive-item--empty">Select a record to review.</div>`;
+  if (type === "sessions") return renderSessionDeletePreview(recordId);
+  if (type === "admins") return renderAdminDeletePreview(recordId);
+  if (type === "participants") return renderParticipantDeletePreview(recordId);
+  if (type === "topics") return renderTopicDeletePreview(recordId);
+  if (type === "votes") return renderVoteDeletePreview(recordId);
+  if (type === "archived") return renderArchivedDeletePreview(recordId);
+  return `<div class="archive-item archive-item--empty">No preview available.</div>`;
+}
+
+function previewShell(title, meta, sections) {
+  return `
+    <article class="topic-entry delete-preview-card">
+      <div class="topic-entry__meta">
+        <span>${escapeHtml(title)}</span>
+        <small>${escapeHtml(meta)}</small>
+      </div>
+      <div class="topic-entry__grid">
+        ${sections.join("")}
+      </div>
+    </article>
+  `;
+}
+
+function previewSection(title, body) {
+  return `
+    <section class="topic-entry__item">
+      <h3>${escapeHtml(title)}</h3>
+      ${body}
+    </section>
+  `;
+}
+
+function renderSessionDeletePreview(sessionId) {
+  const session = sessionItemsSource().find((item) => item.id === sessionId);
+  if (!session) return `<div class="archive-item archive-item--empty">Session not found.</div>`;
+  const manager = adminItems().find((admin) => admin.id === session.adminId);
+  const participants = sessionItems(storageKeys.participants, session);
+  const topics = sessionItems(storageKeys.topics, session);
+  const votes = sessionItems(storageKeys.votes, session);
+  return previewShell(session.name, `Status: ${sessionStatus(session)}`, [
+    previewSection("Session Manager", `<p>${escapeHtml(manager ? `${manager.firstName || manager.username} ${manager.lastName || ""}` : "No manager assigned")}</p>`),
+    previewSection("Participants", participants.length
+      ? participants.map((participant) => `<p>${escapeHtml(`${participant.firstName} ${participant.lastName} - ${participant.email} - ${participantEventStatus(participant)}`)}</p>`).join("")
+      : `<p>No participants.</p>`),
+    previewSection("Topics", topics.length
+      ? topics.flatMap((entry) => entry.topics.map((topic) => `<p>${escapeHtml(topic.title || topic.details || "Untitled")} - ${escapeHtml(entry.firstName || "")} ${escapeHtml(entry.lastName || "")}</p>`)).join("")
+      : `<p>No topics.</p>`),
+    previewSection("Votes", votes.length
+      ? votes.map((vote) => `<p>${escapeHtml(`${vote.firstName || ""} ${vote.lastName || ""} voted for ${vote.topicKey || ""}`)}</p>`).join("")
+      : `<p>No votes.</p>`),
+  ]);
+}
+
+function renderAdminDeletePreview(adminId) {
+  const admin = adminItems().find((item) => item.id === adminId);
+  if (!admin) return `<div class="archive-item archive-item--empty">Session Admin not found.</div>`;
+  const sessions = sessionsForAdmin(adminId);
+  return previewShell(`${admin.firstName || admin.username} ${admin.lastName || ""}`, `${admin.username} - ${admin.role}`, [
+    previewSection("Sessions", sessions.length
+      ? sessions.map((session) => `<p>${escapeHtml(`${session.name} - ${sessionStatus(session)}`)}</p>`).join("")
+      : `<p>No sessions.</p>`),
+    previewSection("Associated Totals", `<p>${escapeHtml(sessions.reduce((sum, session) => sum + sessionItems(storageKeys.participants, session).length, 0))} participants</p><p>${escapeHtml(sessions.reduce((sum, session) => sum + sessionItems(storageKeys.topics, session).length, 0))} topic submissions</p><p>${escapeHtml(sessions.reduce((sum, session) => sum + sessionItems(storageKeys.votes, session).length, 0))} votes</p>`),
+  ]);
+}
+
+function renderParticipantDeletePreview(participantId) {
+  const participant = allVisibleItems(storageKeys.participants).find((item) => item.id === participantId);
+  if (!participant) return `<div class="archive-item archive-item--empty">Participant not found.</div>`;
+  return previewShell(`${participant.firstName} ${participant.lastName}`, participant.email, [
+    previewSection("Assignment", `<p>${escapeHtml(participant.sessionName || "No session")}</p><p>Team ${escapeHtml(participant.teamNumber || "")} - ${escapeHtml(participant.philipsTeam || "")}</p>`),
+    previewSection("Status", `<p>${escapeHtml(participantEventStatus(participant))}</p>`),
+  ]);
+}
+
+function renderTopicDeletePreview(topicId) {
+  const entry = allVisibleItems(storageKeys.topics).find((item) => item.id === topicId);
+  if (!entry) return `<div class="archive-item archive-item--empty">Topic not found.</div>`;
+  return previewShell(entry.sessionName || "Topic Submission", `${entry.firstName || ""} ${entry.lastName || ""}`, [
+    previewSection("Topics", entry.topics.map((topic) => `<p>${escapeHtml(topic.title || "Untitled")} - ${escapeHtml(topic.details || "No details")}</p>`).join("")),
+  ]);
+}
+
+function renderVoteDeletePreview(voteId) {
+  const vote = allVisibleItems(storageKeys.votes).find((item) => item.id === voteId);
+  if (!vote) return `<div class="archive-item archive-item--empty">Vote not found.</div>`;
+  return previewShell(`${vote.firstName || ""} ${vote.lastName || ""}`, vote.sessionName || "Vote", [
+    previewSection("Vote", `<p>Topic Key: ${escapeHtml(vote.topicKey || "")}</p><p>Team ${escapeHtml(vote.teamNumber || "")} - ${escapeHtml(vote.teamAssociation || "")}</p>`),
+  ]);
+}
+
+function renderArchivedDeletePreview(archiveId) {
+  const archive = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]").find((item) => item.id === archiveId);
+  if (!archive) return `<div class="archive-item archive-item--empty">Archived file not found.</div>`;
+  return previewShell(archive.sessionName || "Archived File", archive.archivedAt || "", [
+    previewSection("Archive Contents", `<p>${escapeHtml(archive.topics?.length || 0)} topic submissions</p><p>${escapeHtml(archive.votes?.length || 0)} votes</p><p>${escapeHtml(archive.participants?.length || 0)} participants</p>`),
+  ]);
 }
 
 async function deleteSelectedData() {
@@ -1043,6 +1170,20 @@ function removeDeletedDataLocally(type, recordId) {
     backendVotes = backendVotes ? backendVotes.filter((vote) => !sessionIds.includes(vote.sessionId)) : backendVotes;
     writeItems(storageKeys.admins, readItems(storageKeys.admins).filter((item) => item.id !== recordId));
     if (admin) sessionIds.forEach((sessionId) => {
+      LeanCoffeeSession.removeItemForSession(storageKeys.participants, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
+      LeanCoffeeSession.removeItemForSession(storageKeys.timer, sessionId);
+    });
+    return;
+  }
+  if (type === "sessions") {
+    const sessionIds = [recordId];
+    backendSessions = backendSessions ? backendSessions.filter((session) => session.id !== recordId) : backendSessions;
+    backendParticipants = backendParticipants ? backendParticipants.filter((participant) => !sessionIds.includes(participant.sessionId)) : backendParticipants;
+    backendTopics = backendTopics ? backendTopics.filter((topic) => !sessionIds.includes(topic.sessionId)) : backendTopics;
+    backendVotes = backendVotes ? backendVotes.filter((vote) => !sessionIds.includes(vote.sessionId)) : backendVotes;
+    sessionIds.forEach((sessionId) => {
       LeanCoffeeSession.removeItemForSession(storageKeys.participants, sessionId);
       LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
       LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
@@ -1429,6 +1570,7 @@ function render() {
   renderSessionOptions();
   renderSessionOverview();
   renderAllSessions();
+  renderOngoingSessionLink();
   renderKpiFilters();
   renderKpis();
   renderDeleteData();

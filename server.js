@@ -700,7 +700,7 @@ async function handleApi(request, response) {
       return true;
     }
 
-    if (participant.event_status === "Completed") {
+    if (participant.event_status === "Completed" || participant.event_status === "Concluded") {
       sendJson(response, 403, { ok: false, error: "This participant has already completed the event." });
       return true;
     }
@@ -769,6 +769,7 @@ async function handleApi(request, response) {
       : running || countdownEndAt || remaining < duration
         ? "Ongoing"
         : "Not Started";
+    const participantStatus = status === "Concluded" ? "Concluded" : status;
 
     const result = await pool.query(
       `
@@ -795,6 +796,16 @@ async function handleApi(request, response) {
       [sessionId, duration, remaining, running, endAt, countdownEndAt, concluded]
     );
     await pool.query("UPDATE sessions SET status = $2 WHERE id = $1", [sessionId, status]);
+    await pool.query(
+      `
+        UPDATE participants
+        SET event_status = $2
+        WHERE session_id = $1
+          AND archived = false
+          AND event_status <> 'Completed'
+      `,
+      [sessionId, participantStatus]
+    );
     sendJson(response, 200, { ok: true, timer: timerFromRow(result.rows[0]) });
     return true;
   }
