@@ -1,6 +1,49 @@
 const timerStorageBaseKey = "leanCoffeeTimer";
 const timerSession = window.LeanCoffeeSession;
-const timerDurationSeconds = 12 * 60;
+const runtimeStorageKey = "leanCoffeeRuntime";
+const runtimePresets = {
+  demo: {
+    id: "demo",
+    name: "Demo Runtime",
+    totalMinutes: 12,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 1 },
+      { title: "Creating a Topic", minutes: 3 },
+      { title: "Discussing Which Topic", minutes: 2 },
+      { title: "Meet with all the Teams", minutes: 1 },
+      { title: "Discussing and Collaborating", minutes: 4 },
+      { title: "Closing and Takeaways", minutes: 1 },
+    ],
+  },
+  standard: {
+    id: "standard",
+    name: "Runtime",
+    totalMinutes: 60,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 3 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 12 },
+      { title: "Meet with all the Teams", minutes: 2 },
+      { title: "Discussing and Collaborating", minutes: 30 },
+      { title: "Closing and Takeaways", minutes: 3 },
+    ],
+  },
+  extended: {
+    id: "extended",
+    name: "Runtime",
+    totalMinutes: 90,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 5 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 10 },
+      { title: "Meet with all the Teams", minutes: 5 },
+      { title: "Discussing and Collaborating", minutes: 50 },
+      { title: "Closing and Takeaways", minutes: 5 },
+    ],
+  },
+};
+let activeRuntime = runtimePresets.demo;
+let timerDurationSeconds = activeRuntime.totalMinutes * 60;
 const timerDisplays = document.querySelectorAll("[data-shared-timer]");
 const timerStart = document.querySelector("[data-timer-start]");
 const timerPause = document.querySelector("[data-timer-pause]");
@@ -11,14 +54,32 @@ let lastFinalCountdownValue = null;
 let backendTimer = null;
 let timerWriteInFlight = false;
 let startableSessionCache = null;
-const timerAgenda = [
-  { title: "Meeting the Entire Team", seconds: 60 },
-  { title: "Creating a Topic", seconds: 180 },
-  { title: "Discussing Which Topic", seconds: 120 },
-  { title: "Meet with all the Teams", seconds: 60 },
-  { title: "Discussing and Collaborating", seconds: 240 },
-  { title: "Closing and Takeaways", seconds: 60 },
-];
+
+function runtimeAgenda() {
+  return activeRuntime.agenda.map((item) => ({ ...item, seconds: item.minutes * 60 }));
+}
+
+function applyRuntime(runtime) {
+  activeRuntime = runtimePresets[runtime?.id] || runtime || runtimePresets.demo;
+  timerDurationSeconds = activeRuntime.totalMinutes * 60;
+  localStorage.setItem(runtimeStorageKey, JSON.stringify(activeRuntime));
+}
+
+async function loadRuntime() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(runtimeStorageKey) || "null");
+    if (stored) applyRuntime(stored);
+  } catch {}
+
+  try {
+    const response = await fetch("/api/runtime");
+    if (response.status === 503 || response.status === 404) return;
+    const data = await response.json();
+    if (data?.runtime) applyRuntime(data.runtime);
+  } catch {
+    // Use local/default runtime.
+  }
+}
 
 function currentTimerStorageKey() {
   return timerSession?.key(timerStorageBaseKey) || timerStorageBaseKey;
@@ -164,6 +225,7 @@ function renderTimer() {
 }
 
 async function startTimer() {
+  await loadRuntime();
   const sessions = await loadStartableSessions();
   if (shouldChooseSessionBeforeStart(sessions)) {
     openSessionPicker(sessions);
@@ -304,7 +366,7 @@ function sessionPickerElement() {
       </div>
     `;
     document.body.append(element);
-    element.addEventListener("click", (event) => {
+    element.addEventListener("click", async (event) => {
       if (event.target.closest("[data-session-picker-cancel]")) {
         element.hidden = true;
         return;
@@ -316,6 +378,7 @@ function sessionPickerElement() {
       timerSession.setActiveSession(session);
       element.hidden = true;
       backendTimer = null;
+      await loadRuntime();
       beginTimerForActiveSession();
     });
   }
@@ -372,6 +435,7 @@ function closeConcludedEvent() {
 }
 
 function currentAgendaPhase(timer, remaining) {
+  const timerAgenda = runtimeAgenda();
   const duration = timer.duration || timerDurationSeconds;
   const elapsed = Math.max(0, duration - remaining);
   let cumulative = 0;
@@ -559,8 +623,9 @@ function escapeTimerHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-refreshBackendTimer().then(renderTimer);
+loadRuntime().then(() => refreshBackendTimer()).then(renderTimer);
 window.setInterval(async () => {
+  await loadRuntime();
   await refreshBackendTimer();
   renderTimer();
 }, 1000);

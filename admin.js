@@ -33,8 +33,54 @@ const deleteDataButton = document.querySelector("[data-delete-data-button]");
 const deletePreview = document.querySelector("[data-delete-preview]");
 const allSessionsView = document.querySelector("[data-all-sessions]");
 const ongoingSessionLink = document.querySelector("[data-ongoing-session-link]");
+const runtimeForm = document.querySelector("[data-runtime-form]");
+const runtimeSelect = document.querySelector("[data-runtime-select]");
+const runtimePreview = document.querySelector("[data-runtime-preview]");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
+const runtimeStorageKey = "leanCoffeeRuntime";
+const runtimePresets = {
+  demo: {
+    id: "demo",
+    name: "Demo Runtime",
+    totalMinutes: 12,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 1 },
+      { title: "Creating a Topic", minutes: 3 },
+      { title: "Discussing Which Topic", minutes: 2 },
+      { title: "Meet with all the Teams", minutes: 1 },
+      { title: "Discussing and Collaborating", minutes: 4 },
+      { title: "Closing and Takeaways", minutes: 1 },
+    ],
+  },
+  standard: {
+    id: "standard",
+    name: "Runtime",
+    totalMinutes: 60,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 3 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 12 },
+      { title: "Meet with all the Teams", minutes: 2 },
+      { title: "Discussing and Collaborating", minutes: 30 },
+      { title: "Closing and Takeaways", minutes: 3 },
+    ],
+  },
+  extended: {
+    id: "extended",
+    name: "Runtime",
+    totalMinutes: 90,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 5 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 10 },
+      { title: "Meet with all the Teams", minutes: 5 },
+      { title: "Discussing and Collaborating", minutes: 50 },
+      { title: "Closing and Takeaways", minutes: 5 },
+    ],
+  },
+};
+let activeRuntime = runtimePresets.demo;
 
 const storageKeys = {
   participants: "leanCoffeeParticipants",
@@ -83,12 +129,13 @@ async function apiRequest(path, options = {}) {
 
 async function loadBackendAdmins() {
   try {
-    const [adminData, sessionData, participantData, topicData, voteData] = await Promise.all([
+    const [adminData, sessionData, participantData, topicData, voteData, runtimeData] = await Promise.all([
       apiRequest("/api/admins"),
       apiRequest("/api/sessions"),
       apiRequest("/api/participants"),
       apiRequest("/api/topics"),
       apiRequest("/api/votes"),
+      apiRequest("/api/runtime"),
     ]);
     if (adminData) backendAdmins = adminData.admins;
     if (sessionData) {
@@ -98,6 +145,7 @@ async function loadBackendAdmins() {
     if (participantData) backendParticipants = participantData.participants;
     if (topicData) backendTopics = topicData.topics;
     if (voteData) backendVotes = voteData.votes;
+    if (runtimeData?.runtime) setRuntime(runtimeData.runtime);
     render();
     renderKpis();
     renderSessionOverview();
@@ -267,6 +315,59 @@ function renderParticipantSessionOptions() {
 
 function formValue(form, name) {
   return String(new FormData(form).get(name) || "").trim();
+}
+
+function setRuntime(runtime) {
+  activeRuntime = runtimePresets[runtime?.id] || runtime || runtimePresets.demo;
+  localStorage.setItem(runtimeStorageKey, JSON.stringify(activeRuntime));
+  if (runtimeSelect) runtimeSelect.value = activeRuntime.id || "demo";
+}
+
+function renderRuntimePreview() {
+  if (!runtimePreview || !runtimeSelect) return;
+  const runtime = runtimePresets[runtimeSelect.value] || activeRuntime;
+  runtimePreview.innerHTML = `
+    <article class="topic-entry">
+      <div class="topic-entry__meta">
+        <span>${escapeHtml(runtime.name)} - ${escapeHtml(runtime.totalMinutes)} mins</span>
+      </div>
+      <div class="topic-entry__grid">
+        ${runtime.agenda
+          .map(
+            (item, index) => `
+              <section class="topic-entry__item">
+                <h3>${escapeHtml(String.fromCharCode(65 + index))}. ${escapeHtml(item.title)}</h3>
+                <p>${escapeHtml(item.minutes)} ${item.minutes === 1 ? "min" : "mins"}</p>
+              </section>
+            `
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
+async function saveRuntime(event) {
+  event.preventDefault();
+  const runtimeId = formValue(runtimeForm, "runtimeId") || "demo";
+  try {
+    const data = await apiRequest("/api/runtime", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runtimeId }),
+    });
+    if (data?.runtime) {
+      setRuntime(data.runtime);
+      renderRuntimePreview();
+      alert("Runtime updated. New sessions will use this runtime when started.");
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+  setRuntime(runtimePresets[runtimeId]);
+  renderRuntimePreview();
 }
 
 function selectedParticipantSession() {
@@ -1560,6 +1661,7 @@ function toggleAdminSessions(adminId) {
 
 function render() {
   renderSessionAssignmentControls();
+  renderRuntimePreview();
   renderParticipants();
   renderAdmins();
   renderTopicFilterOptions();
@@ -1621,7 +1723,15 @@ kpiAdminFilter?.addEventListener("change", renderKpis);
 deleteTypeSelect?.addEventListener("change", renderDeleteData);
 deleteRecordSelect?.addEventListener("change", renderDeleteData);
 deleteDataButton?.addEventListener("click", deleteSelectedData);
+runtimeForm?.addEventListener("submit", saveRuntime);
+runtimeSelect?.addEventListener("change", renderRuntimePreview);
 
+try {
+  const storedRuntime = JSON.parse(localStorage.getItem(runtimeStorageKey) || "null");
+  if (storedRuntime?.agenda) setRuntime(storedRuntime);
+} catch {
+  // Keep the default runtime until the backend responds.
+}
 setConditionalFields();
 render();
 loadBackendAdmins();

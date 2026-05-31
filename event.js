@@ -23,15 +23,27 @@ let backendTopics = null;
 const participantStorageKey = "leanCoffeeParticipants";
 const topicStorageKey = "leanCoffeeTopics";
 const participantSessionKey = "leanCoffeeParticipantSession";
+const runtimeStorageKey = "leanCoffeeRuntime";
 
-const agenda = [
-  { title: "Meeting the Entire Team", detail: "Round robin quick introduction", label: "1 min", icon: "01" },
-  { title: "Creating a Topic", detail: "Build team-level topics", label: "3 min", icon: "02" },
-  { title: "Discussing Which Topic", detail: "Decide what reaches final round", label: "2 min", icon: "03" },
-  { title: "Meet with all the Teams", detail: "Regroup across teams", label: "1 min", icon: "04" },
-  { title: "Discussing and Collaborating", detail: "Work through overall topics", label: "4 min", icon: "05" },
-  { title: "Closing and Takeaways", detail: "Last-minute takeaways", label: "1 min", icon: "06" },
+const agendaDetails = [
+  "Round robin quick introduction",
+  "Build team-level topics",
+  "Decide what reaches final round",
+  "Regroup across teams",
+  "Work through overall topics",
+  "Last-minute takeaways",
 ];
+let activeRuntime = {
+  totalMinutes: 12,
+  agenda: [
+    { title: "Meeting the Entire Team", minutes: 1 },
+    { title: "Creating a Topic", minutes: 3 },
+    { title: "Discussing Which Topic", minutes: 2 },
+    { title: "Meet with all the Teams", minutes: 1 },
+    { title: "Discussing and Collaborating", minutes: 4 },
+    { title: "Closing and Takeaways", minutes: 1 },
+  ],
+};
 
 function readItems(key) {
   return eventSession.readItems(key);
@@ -64,6 +76,23 @@ async function loadBackendTopics() {
     renderMyTopics();
   } catch (error) {
     console.warn(error);
+  }
+}
+
+async function loadRuntime() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(runtimeStorageKey) || "null");
+    if (stored?.agenda) activeRuntime = stored;
+  } catch {}
+
+  try {
+    const data = await apiRequest("/api/runtime");
+    if (data?.runtime) {
+      activeRuntime = data.runtime;
+      localStorage.setItem(runtimeStorageKey, JSON.stringify(activeRuntime));
+    }
+  } catch {
+    // Keep local/default runtime.
   }
 }
 
@@ -155,6 +184,12 @@ function renderParticipant(participant) {
 }
 
 function renderRoadmap() {
+  const agenda = activeRuntime.agenda.map((item, index) => ({
+    title: item.title,
+    detail: agendaDetails[index] || "",
+    label: `${item.minutes} ${item.minutes === 1 ? "min" : "mins"}`,
+    icon: String(index + 1).padStart(2, "0"),
+  }));
   roadmap.innerHTML = agenda
     .map(
       (item, index) => `
@@ -170,7 +205,7 @@ function renderRoadmap() {
       `
     )
     .join("");
-  eventTotal.textContent = "Overall event time: 12 minutes";
+  eventTotal.textContent = `Overall event time: ${activeRuntime.totalMinutes} minutes`;
 }
 
 participantLogout.addEventListener("click", () => {
@@ -350,7 +385,7 @@ if (!participant) {
   window.location.href = "begin.html";
 } else {
   renderParticipant(participant);
-  renderRoadmap();
+  loadRuntime().then(renderRoadmap);
   updateSubmitTopicVisibility(participant);
   renderMyTopics();
   loadBackendTopics();

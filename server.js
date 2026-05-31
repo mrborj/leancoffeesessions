@@ -106,6 +106,52 @@ function timerFromRow(row) {
   };
 }
 
+const runtimePresets = {
+  demo: {
+    id: "demo",
+    name: "Demo Runtime",
+    totalMinutes: 12,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 1 },
+      { title: "Creating a Topic", minutes: 3 },
+      { title: "Discussing Which Topic", minutes: 2 },
+      { title: "Meet with all the Teams", minutes: 1 },
+      { title: "Discussing and Collaborating", minutes: 4 },
+      { title: "Closing and Takeaways", minutes: 1 },
+    ],
+  },
+  standard: {
+    id: "standard",
+    name: "Runtime",
+    totalMinutes: 60,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 3 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 12 },
+      { title: "Meet with all the Teams", minutes: 2 },
+      { title: "Discussing and Collaborating", minutes: 30 },
+      { title: "Closing and Takeaways", minutes: 3 },
+    ],
+  },
+  extended: {
+    id: "extended",
+    name: "Runtime",
+    totalMinutes: 90,
+    agenda: [
+      { title: "Meeting the Entire Team", minutes: 5 },
+      { title: "Creating a Topic", minutes: 10 },
+      { title: "Discussing Which Topic", minutes: 10 },
+      { title: "Meet with all the Teams", minutes: 5 },
+      { title: "Discussing and Collaborating", minutes: 50 },
+      { title: "Closing and Takeaways", minutes: 5 },
+    ],
+  },
+};
+
+function runtimeForId(id) {
+  return runtimePresets[id] || runtimePresets.demo;
+}
+
 function participantFromRow(row) {
   return {
     id: row.id,
@@ -380,6 +426,23 @@ async function initializeDatabase() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(
+    `
+      INSERT INTO app_settings (key, value)
+      VALUES ('runtime', $1::jsonb)
+      ON CONFLICT (key) DO NOTHING
+    `,
+    [JSON.stringify(runtimePresets.demo)]
+  );
+
   await pool.query(
     `
       INSERT INTO sessions (
@@ -433,6 +496,29 @@ async function handleApi(request, response) {
 
   if (!pool && url.pathname.startsWith("/api/")) {
     sendJson(response, 503, { ok: false, error: "PostgreSQL is not configured." });
+    return true;
+  }
+
+  if (url.pathname === "/api/runtime" && request.method === "GET") {
+    const result = await pool.query("SELECT value FROM app_settings WHERE key = 'runtime' LIMIT 1");
+    sendJson(response, 200, { ok: true, runtime: result.rows[0]?.value || runtimePresets.demo, presets: runtimePresets });
+    return true;
+  }
+
+  if (url.pathname === "/api/runtime" && request.method === "PUT") {
+    const body = await readRequestBody(request);
+    const runtime = runtimeForId(body.runtimeId || body.id);
+    await pool.query(
+      `
+        INSERT INTO app_settings (key, value)
+        VALUES ('runtime', $1::jsonb)
+        ON CONFLICT (key) DO UPDATE
+          SET value = EXCLUDED.value,
+              updated_at = NOW()
+      `,
+      [JSON.stringify(runtime)]
+    );
+    sendJson(response, 200, { ok: true, runtime, presets: runtimePresets });
     return true;
   }
 
