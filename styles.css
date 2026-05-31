@@ -1923,6 +1923,36 @@ td {
   box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.45);
 }
 
+.session-picker-dialog {
+  width: min(520px, 100%);
+}
+
+.session-picker-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.session-picker-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.session-picker-list button:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(11, 94, 215, 0.28);
+}
+
 .topic-form-grid {
   display: grid;
   gap: 0.9rem;

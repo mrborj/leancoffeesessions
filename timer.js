@@ -1,14 +1,16 @@
 const timerStorageBaseKey = "leanCoffeeTimer";
 const timerSession = window.LeanCoffeeSession;
-const timerStorageKey = timerSession?.key(timerStorageBaseKey) || timerStorageBaseKey;
 const timerDurationSeconds = 12 * 60;
 const timerDisplays = document.querySelectorAll("[data-shared-timer]");
 const timerStart = document.querySelector("[data-timer-start]");
 const timerPause = document.querySelector("[data-timer-pause]");
+const timerResume = document.querySelector("[data-timer-resume]");
 const timerReset = document.querySelector("[data-timer-reset]");
 let lastCountdownValue = null;
 let lastFinalCountdownValue = null;
-const adminConclusionClosedKey = `leanCoffeeAdminConclusionClosed:${timerStorageKey}`;
+let backendTimer = null;
+let timerWriteInFlight = false;
+let startableSessionCache = null;
 const timerAgenda = [
   { title: "Meeting the Entire Team", seconds: 60 },
   { title: "Creating a Topic", seconds: 180 },
@@ -18,39 +20,81 @@ const timerAgenda = [
   { title: "Closing and Takeaways", seconds: 60 },
 ];
 
+function currentTimerStorageKey() {
+  return timerSession?.key(timerStorageBaseKey) || timerStorageBaseKey;
+}
+
+function adminConclusionClosedKey() {
+  return `leanCoffeeAdminConclusionClosed:${currentTimerStorageKey()}`;
+}
+
+function defaultTimer() {
+  return {
+    duration: timerDurationSeconds,
+    remaining: timerDurationSeconds,
+    running: false,
+    endAt: null,
+    countdownEndAt: null,
+    concluded: false,
+  };
+}
+
 function readTimer() {
-  const timer = JSON.parse(
-        (timerSession?.getItem(timerStorageBaseKey) || localStorage.getItem(timerStorageKey)) ||
-      JSON.stringify({
-        duration: timerDurationSeconds,
-        remaining: timerDurationSeconds,
-        running: false,
-        endAt: null,
-        countdownEndAt: null,
-        concluded: false,
-      })
+  const timer = backendTimer || JSON.parse(
+    (timerSession?.getItem(timerStorageBaseKey) || localStorage.getItem(currentTimerStorageKey())) ||
+      JSON.stringify(defaultTimer())
   );
 
   if (timer.duration !== timerDurationSeconds) {
-    return {
-      duration: timerDurationSeconds,
-      remaining: timerDurationSeconds,
-      running: false,
-      endAt: null,
-      countdownEndAt: null,
-      concluded: false,
-    };
+    return defaultTimer();
   }
 
   return timer;
 }
 
 function writeTimer(timer) {
+  backendTimer = timer;
   if (timerSession) {
     timerSession.setItem(timerStorageBaseKey, JSON.stringify(timer));
-    return;
+  } else {
+    localStorage.setItem(currentTimerStorageKey(), JSON.stringify(timer));
   }
-  localStorage.setItem(timerStorageKey, JSON.stringify(timer));
+  persistTimer(timer);
+}
+
+async function persistTimer(timer) {
+  if (!timerSession || timerWriteInFlight) return;
+  timerWriteInFlight = true;
+  try {
+    await fetch("/api/timer", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: timerSession.activeSession().id,
+        ...timer,
+      }),
+    });
+  } catch {
+    // Local storage remains the fallback when the backend is unavailable.
+  } finally {
+    timerWriteInFlight = false;
+  }
+}
+
+async function refreshBackendTimer() {
+  if (!timerSession || timerWriteInFlight) return;
+  try {
+    const sessionId = timerSession.activeSession().id;
+    const response = await fetch(`/api/timer?sessionId=${encodeURIComponent(sessionId)}`);
+    if (response.status === 503 || response.status === 404) return;
+    const data = await response.json();
+    if (data?.timer) {
+      backendTimer = data.timer;
+      timerSession.setItem(timerStorageBaseKey, JSON.stringify(backendTimer));
+    }
+  } catch {
+    // Quiet fallback to local storage.
+  }
 }
 
 function timerRemaining(timer) {
@@ -96,7 +140,7 @@ function renderTimer() {
     writeTimer(timer);
   }
 
-  if (timer.concluded && !(isAdminLiveView() && sessionStorage.getItem(adminConclusionClosedKey))) {
+  if (timer.concluded && !(isAdminLiveView() && sessionStorage.getItem(adminConclusionClosedKey()))) {
     showConclusion();
   } else if (timer.running && remaining <= 5) {
     showFinalCountdown(remaining);
@@ -119,7 +163,17 @@ function renderTimer() {
   );
 }
 
-function startTimer() {
+async function startTimer() {
+  const sessions = await loadStartableSessions();
+  if (shouldChooseSessionBeforeStart(sessions)) {
+    openSessionPicker(sessions);
+    return;
+  }
+  if (sessions.length === 1) timerSession.setActiveSession(sessions[0]);
+  beginTimerForActiveSession();
+}
+
+function beginTimerForActiveSession() {
   const timer = readTimer();
   const remaining = timerRemaining(timer) || timer.duration || timerDurationSeconds;
   writeTimer({
@@ -130,7 +184,7 @@ function startTimer() {
     countdownEndAt: Date.now() + 6000,
     concluded: false,
   });
-  sessionStorage.removeItem(adminConclusionClosedKey);
+  sessionStorage.removeItem(adminConclusionClosedKey());
   renderTimer();
 
   if (document.body.classList.contains("admin-shell")) {
@@ -139,11 +193,28 @@ function startTimer() {
 }
 
 function pauseTimer() {
+  const timer = readTimer();
+  const remaining = timerRemaining(timer);
   writeTimer({
-    duration: timerDurationSeconds,
-    remaining: timerDurationSeconds,
+    duration: timer.duration || timerDurationSeconds,
+    remaining,
     running: false,
     endAt: null,
+    countdownEndAt: null,
+    concluded: timer.concluded || false,
+  });
+  renderTimer();
+}
+
+function resumeTimer() {
+  const timer = readTimer();
+  const remaining = timerRemaining(timer);
+  if (!remaining || timer.concluded) return;
+  writeTimer({
+    duration: timer.duration || timerDurationSeconds,
+    remaining,
+    running: true,
+    endAt: Date.now() + remaining * 1000,
     countdownEndAt: null,
     concluded: false,
   });
@@ -151,16 +222,100 @@ function pauseTimer() {
 }
 
 function resetTimer() {
-  writeTimer({
-    duration: timerDurationSeconds,
-    remaining: timerDurationSeconds,
-    running: false,
-    endAt: null,
-    countdownEndAt: null,
-    concluded: false,
-  });
-  sessionStorage.removeItem(adminConclusionClosedKey);
+  writeTimer(defaultTimer());
+  sessionStorage.removeItem(adminConclusionClosedKey());
   renderTimer();
+}
+
+function shouldChooseSessionBeforeStart(sessions) {
+  const admin = timerSession?.adminSession();
+  return document.body.dataset.adminMode === "session" &&
+    admin?.role === "Session Admin" &&
+    sessions.length > 1;
+}
+
+async function loadStartableSessions() {
+  const admin = timerSession?.adminSession();
+  if (!admin) return [];
+  try {
+    const response = await fetch("/api/sessions");
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.sessions) {
+        data.sessions.forEach((session) => timerSession.saveSession(session));
+        startableSessionCache = filterStartableSessions(data.sessions);
+        return startableSessionCache;
+      }
+    }
+  } catch {
+    // Fall back to locally known sessions.
+  }
+  startableSessionCache = filterStartableSessions(timerSession.sessions());
+  return startableSessionCache;
+}
+
+function filterStartableSessions(sessions) {
+  const admin = timerSession?.adminSession();
+  if (!admin) return [];
+  const archived = JSON.parse(localStorage.getItem("leanCoffeeArchivedResults") || "[]");
+  const archivedIds = new Set(archived.map((entry) => entry.sessionId));
+  return sessions.filter((session) => {
+    const isOwned = session.adminId ? session.adminId === admin.id : session.id === admin.sessionId;
+    const isOpen = !session.archived && !archivedIds.has(session.id) && session.status !== "Concluded";
+    return isOwned && isOpen;
+  });
+}
+
+function openSessionPicker(sessions) {
+  const element = sessionPickerElement();
+  const list = element.querySelector("[data-session-picker-list]");
+  list.innerHTML = sessions
+    .map(
+      (session) => `
+        <button type="button" data-session-picker-choice="${escapeTimerHtml(session.id)}">
+          <strong>${escapeTimerHtml(session.name)}</strong>
+          <span>${escapeTimerHtml(session.status || "Not Started")}</span>
+        </button>
+      `
+    )
+    .join("");
+  element.hidden = false;
+}
+
+function sessionPickerElement() {
+  let element = document.querySelector("[data-session-picker]");
+  if (!element) {
+    element = document.createElement("div");
+    element.className = "topic-modal";
+    element.dataset.sessionPicker = "";
+    element.hidden = true;
+    element.innerHTML = `
+      <div class="topic-dialog session-picker-dialog">
+        <h2>Select Session to Start</h2>
+        <p>Choose which active or not-started session should receive this timer.</p>
+        <div class="session-picker-list" data-session-picker-list></div>
+        <div class="form-actions">
+          <button type="button" class="button-secondary" data-session-picker-cancel>Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.append(element);
+    element.addEventListener("click", (event) => {
+      if (event.target.closest("[data-session-picker-cancel]")) {
+        element.hidden = true;
+        return;
+      }
+      const choice = event.target.closest("[data-session-picker-choice]");
+      if (!choice) return;
+      const session = (startableSessionCache || []).find((item) => item.id === choice.dataset.sessionPickerChoice);
+      if (!session) return;
+      timerSession.setActiveSession(session);
+      element.hidden = true;
+      backendTimer = null;
+      beginTimerForActiveSession();
+    });
+  }
+  return element;
 }
 
 function isAdminLiveView() {
@@ -201,7 +356,7 @@ function markParticipantCompleted() {
 function closeConcludedEvent() {
   if (isAdminLiveView()) {
     const admin = timerSession.adminSession();
-    sessionStorage.setItem(adminConclusionClosedKey, "true");
+    sessionStorage.setItem(adminConclusionClosedKey(), "true");
     window.location.href = admin?.role === "Session Admin" ? "session-admin.html" : "admin.html";
     return;
   }
@@ -237,6 +392,7 @@ function currentAgendaPhase(timer, remaining) {
 
 timerStart?.addEventListener("click", startTimer);
 timerPause?.addEventListener("click", pauseTimer);
+timerResume?.addEventListener("click", resumeTimer);
 timerReset?.addEventListener("click", resetTimer);
 document.addEventListener("click", (event) => {
   if (event.target.closest("[data-conclusion-close]")) {
@@ -244,7 +400,7 @@ document.addEventListener("click", (event) => {
   }
 });
 window.addEventListener("storage", (event) => {
-  if (event.key === timerStorageKey) {
+  if (event.key === currentTimerStorageKey()) {
     renderTimer();
   }
 });
@@ -399,5 +555,8 @@ function escapeTimerHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-renderTimer();
-window.setInterval(renderTimer, 1000);
+refreshBackendTimer().then(renderTimer);
+window.setInterval(async () => {
+  await refreshBackendTimer();
+  renderTimer();
+}, 1000);

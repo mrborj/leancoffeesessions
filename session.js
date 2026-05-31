@@ -47,6 +47,9 @@ const LeanCoffeeSession = (() => {
       id: session.id || slug(session.team || session.name),
       name: session.name || `${session.team || "Team"} Lean Sessions`,
       team: session.team || session.name || "Team",
+      adminId: session.adminId || "",
+      status: session.status || "Not Started",
+      archived: Boolean(session.archived),
       createdAt: session.createdAt || new Date().toISOString(),
     };
     const existing = sessions().filter((item) => item.id !== normalized.id);

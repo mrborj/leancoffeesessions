@@ -431,6 +431,9 @@ function sessionIdForName(name) {
 function adminEventStatus(admin) {
   if ((admin.role || "Super Admin") !== "Session Admin") return "Super Admin";
   const sessionId = sessionIdForName(admin.team || admin.username);
+  const backendSession = backendSessions?.find((session) => session.id === sessionId);
+  if (backendSession?.status === "Concluded") return "Concluded";
+  if (backendSession?.status === "Ongoing") return "Ongoing";
   const archived = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   if (archived.some((entry) => entry.sessionId === sessionId)) return "Concluded";
 
@@ -442,6 +445,8 @@ function adminEventStatus(admin) {
 }
 
 function sessionStatus(session) {
+  if (session.status === "Concluded") return "Concluded";
+  if (session.status === "Ongoing") return "Active";
   const archived = JSON.parse(localStorage.getItem(storageKeys.archivedResults) || "[]");
   if (archived.some((entry) => entry.sessionId === session.id)) return "Concluded";
 
@@ -1047,6 +1052,26 @@ function saveRow(row, collection, sessionId) {
 }
 
 async function archiveRow(itemId, collection, sessionId) {
+  if (collection === storageKeys.admins && backendAdmins) {
+    try {
+      const data = await apiRequest(`/api/admins/${encodeURIComponent(itemId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      if (data?.admin) {
+        backendAdmins = backendAdmins.map((admin) =>
+          admin.id === itemId ? { ...admin, archived: true } : admin
+        );
+        render();
+      }
+      return;
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+  }
+
   if (collection === storageKeys.participants && backendParticipants) {
     try {
       const data = await apiRequest(`/api/participants/${encodeURIComponent(itemId)}`, {

@@ -95,6 +95,17 @@ function sessionFromRow(row) {
   };
 }
 
+function timerFromRow(row) {
+  return {
+    duration: Number(row.duration_seconds),
+    remaining: Number(row.remaining_seconds),
+    running: row.running,
+    endAt: row.end_at ? new Date(row.end_at).getTime() : null,
+    countdownEndAt: row.countdown_end_at ? new Date(row.countdown_end_at).getTime() : null,
+    concluded: row.concluded,
+  };
+}
+
 function participantFromRow(row) {
   return {
     id: row.id,
@@ -333,6 +344,19 @@ async function initializeDatabase() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS timer_states (
+      session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+      duration_seconds INTEGER NOT NULL,
+      remaining_seconds INTEGER NOT NULL,
+      running BOOLEAN NOT NULL DEFAULT false,
+      end_at TIMESTAMPTZ,
+      countdown_end_at TIMESTAMPTZ,
+      concluded BOOLEAN NOT NULL DEFAULT false,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   await pool.query(
     `
       INSERT INTO sessions (
@@ -478,6 +502,28 @@ async function handleApi(request, response) {
     return true;
   }
 
+  if (url.pathname.startsWith("/api/admins/") && request.method === "PATCH") {
+    const adminId = decodeURIComponent(url.pathname.split("/").pop());
+    const body = await readRequestBody(request);
+    const result = await pool.query(
+      `
+        UPDATE admins
+        SET archived = COALESCE($2, archived)
+        WHERE id = $1
+        RETURNING *
+      `,
+      [adminId, typeof body.archived === "boolean" ? body.archived : null]
+    );
+
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, error: "Admin not found." });
+      return true;
+    }
+
+    sendJson(response, 200, { ok: true, admin: adminFromRow(result.rows[0]) });
+    return true;
+  }
+
   if (url.pathname === "/api/participants" && request.method === "GET") {
     const result = await pool.query(`
       SELECT
@@ -595,6 +641,62 @@ async function handleApi(request, response) {
       return true;
     }
     sendJson(response, 200, { ok: true, participant: participantFromRow(result.rows[0]) });
+    return true;
+  }
+
+  if (url.pathname === "/api/timer" && request.method === "GET") {
+    const sessionId = url.searchParams.get("sessionId") || "master-data";
+    const result = await pool.query("SELECT * FROM timer_states WHERE session_id = $1", [sessionId]);
+    if (!result.rows[0]) {
+      sendJson(response, 200, { ok: true, timer: null });
+      return true;
+    }
+
+    sendJson(response, 200, { ok: true, timer: timerFromRow(result.rows[0]) });
+    return true;
+  }
+
+  if (url.pathname === "/api/timer" && request.method === "PUT") {
+    const body = await readRequestBody(request);
+    const sessionId = body.sessionId || "master-data";
+    const duration = Number(body.duration || 0);
+    const remaining = Number(body.remaining || 0);
+    const running = Boolean(body.running);
+    const concluded = Boolean(body.concluded);
+    const endAt = body.endAt ? new Date(Number(body.endAt)) : null;
+    const countdownEndAt = body.countdownEndAt ? new Date(Number(body.countdownEndAt)) : null;
+    const status = concluded
+      ? "Concluded"
+      : running || countdownEndAt || remaining < duration
+        ? "Ongoing"
+        : "Not Started";
+
+    const result = await pool.query(
+      `
+        INSERT INTO timer_states (
+          session_id,
+          duration_seconds,
+          remaining_seconds,
+          running,
+          end_at,
+          countdown_end_at,
+          concluded
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (session_id) DO UPDATE
+          SET duration_seconds = EXCLUDED.duration_seconds,
+              remaining_seconds = EXCLUDED.remaining_seconds,
+              running = EXCLUDED.running,
+              end_at = EXCLUDED.end_at,
+              countdown_end_at = EXCLUDED.countdown_end_at,
+              concluded = EXCLUDED.concluded,
+              updated_at = NOW()
+        RETURNING *
+      `,
+      [sessionId, duration, remaining, running, endAt, countdownEndAt, concluded]
+    );
+    await pool.query("UPDATE sessions SET status = $2 WHERE id = $1", [sessionId, status]);
+    sendJson(response, 200, { ok: true, timer: timerFromRow(result.rows[0]) });
     return true;
   }
 
