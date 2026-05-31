@@ -7,16 +7,6 @@
   --ink: #1d1716;
 }
 
-@font-face {
-  font-family: "Mrsborj";
-  src:
-    url("assets/Mrsborj-Regular.ttf") format("truetype"),
-    url("assets/Mrsborj-Regular.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -32,7 +22,7 @@ body {
   background:
     radial-gradient(circle at 12% 6%, rgba(11, 94, 215, 0.35), transparent 34rem),
     linear-gradient(135deg, #19100f 0%, var(--coffee-dark) 46%, #0a3479 100%);
-  font-family: "Mrsborj", Arial, Helvetica, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 a {
@@ -1585,6 +1575,8 @@ td {
 }
 
 .roadmap-icon {
+  position: relative;
+  z-index: 1;
   display: grid;
   width: 3.7rem;
   height: 3.7rem;
@@ -1598,6 +1590,40 @@ td {
   font-size: 1.0075rem;
   font-weight: 900;
   box-shadow: 0 0.6rem 1.2rem rgba(64, 49, 47, 0.12);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.roadmap-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0.48rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 68% 30%, rgba(255, 255, 255, 0.98) 0 0.16rem, transparent 0.18rem),
+    radial-gradient(circle at 50% 50%, rgba(255, 240, 186, 0.56), rgba(11, 94, 215, 0.18) 48%, transparent 68%);
+  box-shadow:
+    0 0 0.72rem rgba(255, 240, 186, 0.82),
+    inset 0 0 0.88rem rgba(11, 94, 215, 0.28);
+  animation: orbitGlow 2.8s linear infinite;
+  z-index: -1;
+}
+
+.roadmap-icon::after {
+  content: "";
+  position: absolute;
+  top: 0.92rem;
+  left: 0.92rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #fff0ba;
+  box-shadow:
+    0 0 0.38rem #fff,
+    0 0 0.82rem #fff0ba,
+    0 0 1.15rem rgba(11, 94, 215, 0.72);
+  transform-origin: 0.92rem 0.92rem;
+  animation: orbitStar 2.8s linear infinite;
 }
 
 .roadmap-node,
@@ -1641,6 +1667,30 @@ td {
   }
   to {
     transform: translateX(-50%) rotate(96deg);
+  }
+}
+
+@keyframes orbitGlow {
+  from {
+    transform: rotate(0deg) scale(0.92);
+    opacity: 0.68;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.08);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(360deg) scale(0.92);
+    opacity: 0.68;
+  }
+}
+
+@keyframes orbitStar {
+  from {
+    transform: rotate(0deg) translateX(0.78rem) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(0.78rem) rotate(-360deg);
   }
 }
 
