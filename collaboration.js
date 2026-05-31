@@ -13,6 +13,8 @@ const voteStorageKey = "leanCoffeeVotes";
 const activeTopicStorageKey = "leanCoffeeActiveTopic";
 const collabSession = window.LeanCoffeeSession;
 let activeTopicKey = "";
+let backendTopics = null;
+let backendVotes = null;
 
 function readItems(key) {
   return collabSession.readItems(key);
@@ -20,6 +22,38 @@ function readItems(key) {
 
 function writeItems(key, items) {
   collabSession.writeItems(key, items);
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+function topicEntries() {
+  return backendTopics || readItems(topicStorageKey);
+}
+
+function voteItems() {
+  return backendVotes || readItems(voteStorageKey);
+}
+
+async function refreshBackendData() {
+  try {
+    const sessionId = collabSession.activeSession().id;
+    const [topicData, voteData] = await Promise.all([
+      apiRequest(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`),
+      apiRequest(`/api/votes?sessionId=${encodeURIComponent(sessionId)}`),
+    ]);
+    if (topicData) backendTopics = topicData.topics;
+    if (voteData) backendVotes = voteData.votes;
+    renderBoard();
+    if (activeTopicKey && !detailModal.hidden) openTopicDetail(activeTopicKey);
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
 function escapeHtml(value) {
@@ -31,7 +65,7 @@ function escapeHtml(value) {
 }
 
 function voteCounts() {
-  return readItems(voteStorageKey).reduce((counts, vote) => {
+  return voteItems().reduce((counts, vote) => {
     counts[vote.topicKey] = (counts[vote.topicKey] || 0) + 1;
     return counts;
   }, {});
@@ -40,7 +74,7 @@ function voteCounts() {
 function acceptedTopics() {
   const counts = voteCounts();
   const byTeam = {};
-  readItems(topicStorageKey).forEach((entry) => {
+  topicEntries().forEach((entry) => {
     const team = `Team ${entry.teamNumber || "Unassigned"}`;
     byTeam[team] = byTeam[team] || [];
     entry.topics.forEach((topic, index) => {
@@ -106,7 +140,7 @@ if (!isAdmin) {
 
 function findTopic(topicKey) {
   const [entryId, index] = topicKey.split(":");
-  const entry = readItems(topicStorageKey).find((item) => item.id === entryId);
+  const entry = topicEntries().find((item) => item.id === entryId);
   if (!entry) return null;
   return { entry, topic: entry.topics[Number(index)], index: Number(index) };
 }
@@ -126,10 +160,10 @@ closeDetail.addEventListener("click", () => {
   if (isAdmin) collabSession.setItem(activeTopicStorageKey, "");
 });
 
-saveNotes.addEventListener("click", () => {
+saveNotes.addEventListener("click", async () => {
   if (!isAdmin || !activeTopicKey) return;
   const [entryId, index] = activeTopicKey.split(":");
-  const entries = readItems(topicStorageKey);
+  const entries = topicEntries();
   const entry = entries.find((item) => item.id === entryId);
   if (!entry) return;
 
@@ -137,7 +171,28 @@ saveNotes.addEventListener("click", () => {
   entry.topics[Number(index)].painPoints = adminNotes.querySelector('[name="painPoints"]').value.trim();
   entry.topics[Number(index)].solutions = adminNotes.querySelector('[name="solutions"]').value.trim();
   entry.topics[Number(index)].status = adminNotes.querySelector('[name="status"]').value;
-  writeItems(topicStorageKey, entries);
+
+  if (backendTopics) {
+    try {
+      await apiRequest("/api/topics", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicKey: activeTopicKey,
+          notes: entry.topics[Number(index)].notes,
+          painPoints: entry.topics[Number(index)].painPoints,
+          solutions: entry.topics[Number(index)].solutions,
+          status: entry.topics[Number(index)].status,
+        }),
+      });
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+  } else {
+    writeItems(topicStorageKey, entries);
+  }
+
   renderBoard();
   detailModal.hidden = true;
   collabSession.setItem(activeTopicStorageKey, "");
@@ -187,4 +242,5 @@ window.addEventListener("leanCoffeeTimerTick", (event) => {
 });
 
 renderBoard();
-window.setInterval(renderBoard, 1000);
+refreshBackendData();
+window.setInterval(refreshBackendData, 1000);

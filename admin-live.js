@@ -5,13 +5,37 @@ const adminHomeLink = document.querySelector("[data-admin-home-link]");
 const topicStorageKey = "leanCoffeeTopics";
 const voteStorageKey = "leanCoffeeVotes";
 const liveSession = window.LeanCoffeeSession;
+let backendTopics = null;
+let backendVotes = null;
 
 if (adminHomeLink && liveSession.adminSession()?.role === "Session Admin") {
   adminHomeLink.href = "session-admin.html";
 }
 
 function readTopics() {
-  return liveSession.readItems(topicStorageKey);
+  return backendTopics || liveSession.readItems(topicStorageKey);
+}
+
+async function apiRequest(path) {
+  const response = await fetch(path);
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+async function refreshBackendData() {
+  try {
+    const sessionId = liveSession.activeSession().id;
+    const [topicData, voteData] = await Promise.all([
+      apiRequest(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`),
+      apiRequest(`/api/votes?sessionId=${encodeURIComponent(sessionId)}`),
+    ]);
+    if (topicData) backendTopics = topicData.topics;
+    if (voteData) backendVotes = voteData.votes;
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
 function escapeHtml(value) {
@@ -70,7 +94,7 @@ function renderKanban() {
 }
 
 function readVotes() {
-  return liveSession.readItems(voteStorageKey);
+  return backendVotes || liveSession.readItems(voteStorageKey);
 }
 
 function voteCounts() {
@@ -129,7 +153,12 @@ window.addEventListener("leanCoffeeTimerTick", (event) => {
 
 renderKanban();
 renderVoteActivity();
-window.setInterval(() => {
+refreshBackendData().then(() => {
+  renderKanban();
+  renderVoteActivity();
+});
+window.setInterval(async () => {
+  await refreshBackendData();
   renderKanban();
   renderVoteActivity();
 }, 1000);

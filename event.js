@@ -18,6 +18,7 @@ let timerIsRunning = false;
 let lastPhaseIndex = null;
 let currentPhaseIndex = 0;
 const eventSession = window.LeanCoffeeSession;
+let backendTopics = null;
 
 const participantStorageKey = "leanCoffeeParticipants";
 const topicStorageKey = "leanCoffeeTopics";
@@ -40,8 +41,77 @@ function writeItems(key, items) {
   eventSession.writeItems(key, items);
 }
 
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+function topicEntries() {
+  return backendTopics || readItems(topicStorageKey);
+}
+
+async function loadBackendTopics() {
+  try {
+    const sessionId = eventSession.activeSession().id;
+    const data = await apiRequest(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`);
+    if (!data) return;
+    backendTopics = data.topics;
+    const participant = currentParticipant();
+    if (participant) updateSubmitTopicVisibility(participant);
+    renderMyTopics();
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+function updateBackendTopicEntry(savedEntry) {
+  if (!backendTopics || !savedEntry) return;
+  backendTopics = [savedEntry, ...backendTopics.filter((entry) => entry.id !== savedEntry.id)];
+}
+
+async function saveTopicEntry(entry) {
+  try {
+    const data = await apiRequest("/api/topics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    });
+    if (data?.topic) {
+      if (!backendTopics) backendTopics = [];
+      updateBackendTopicEntry(data.topic);
+      return true;
+    }
+  } catch (error) {
+    alert(error.message);
+    return true;
+  }
+
+  const entries = readItems(topicStorageKey);
+  entries.push(entry);
+  writeItems(topicStorageKey, entries);
+  return false;
+}
+
+async function patchTopic(topicKey, changes) {
+  if (!backendTopics) return false;
+  try {
+    await apiRequest("/api/topics", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicKey, ...changes }),
+    });
+    return true;
+  } catch (error) {
+    alert(error.message);
+    return true;
+  }
+}
+
 function participantTopicCount(participantId) {
-  return readItems(topicStorageKey)
+  return topicEntries()
     .filter((entry) => entry.participantId === participantId)
     .reduce((count, entry) => count + entry.topics.length, 0);
 }
@@ -130,7 +200,7 @@ closeMyTopics.addEventListener("click", () => {
   myTopicsModal.hidden = true;
 });
 
-topicForm.addEventListener("submit", (event) => {
+topicForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const participant = currentParticipant();
@@ -157,8 +227,7 @@ topicForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const entries = readItems(topicStorageKey);
-  entries.push({
+  const entry = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     participantId: participant.id,
     firstName: participant.firstName,
@@ -170,8 +239,8 @@ topicForm.addEventListener("submit", (event) => {
     sessionId: eventSession.activeSession().id,
     sessionName: eventSession.activeSession().name,
     topics: acceptedTopics,
-  });
-  writeItems(topicStorageKey, entries);
+  };
+  await saveTopicEntry(entry);
 
   topicForm.reset();
   topicModal.hidden = true;
@@ -183,7 +252,7 @@ function renderMyTopics() {
   const participant = currentParticipant();
   if (!participant) return;
 
-  const entries = readItems(topicStorageKey).filter((entry) => entry.participantId === participant.id);
+  const entries = topicEntries().filter((entry) => entry.participantId === participant.id);
   myTopicsList.innerHTML = entries.length
     ? entries
         .map(
@@ -232,7 +301,7 @@ function renderMyTopics() {
     : `<div class="archive-item archive-item--empty">No submitted topics yet.</div>`;
 }
 
-myTopicsList.addEventListener("click", (event) => {
+myTopicsList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-my-topic-action]");
   if (!button) return;
 
@@ -248,22 +317,29 @@ myTopicsList.addEventListener("click", (event) => {
     return;
   }
 
-  const entries = readItems(topicStorageKey);
+  const entries = topicEntries();
   const entry = entries.find((topicEntry) => topicEntry.id === entryId);
   if (!entry) return;
+  const topicKey = `${entryId}:${topicIndex}`;
 
   if (action === "save") {
     const title = item.querySelector('[name="topicTitle"]').value.trim();
     const details = item.querySelector('[name="topicDetails"]').value.trim();
-    entry.topics[topicIndex] = { title, details };
+    await patchTopic(topicKey, { title, details });
+    entry.topics[topicIndex] = { ...entry.topics[topicIndex], title, details };
   }
 
   if (action === "delete") {
+    await patchTopic(topicKey, { archived: true });
     entry.topics.splice(topicIndex, 1);
   }
 
   const nextEntries = entries.filter((topicEntry) => topicEntry.topics.length > 0);
-  writeItems(topicStorageKey, nextEntries);
+  if (backendTopics) {
+    backendTopics = nextEntries;
+  } else {
+    writeItems(topicStorageKey, nextEntries);
+  }
   const participant = currentParticipant();
   if (participant) updateSubmitTopicVisibility(participant);
   renderMyTopics();
@@ -277,6 +353,7 @@ if (!participant) {
   renderRoadmap();
   updateSubmitTopicVisibility(participant);
   renderMyTopics();
+  loadBackendTopics();
 }
 
 window.addEventListener("leanCoffeeTimerTick", (event) => {

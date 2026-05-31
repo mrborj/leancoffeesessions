@@ -60,6 +60,8 @@ const isSuperAdmin = adminSession?.role !== "Session Admin";
 let backendAdmins = null;
 let backendSessions = null;
 let backendParticipants = null;
+let backendTopics = null;
+let backendVotes = null;
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, options);
@@ -71,10 +73,12 @@ async function apiRequest(path, options = {}) {
 
 async function loadBackendAdmins() {
   try {
-    const [adminData, sessionData, participantData] = await Promise.all([
+    const [adminData, sessionData, participantData, topicData, voteData] = await Promise.all([
       apiRequest("/api/admins"),
       apiRequest("/api/sessions"),
       apiRequest("/api/participants"),
+      apiRequest("/api/topics"),
+      apiRequest("/api/votes"),
     ]);
     if (adminData) backendAdmins = adminData.admins;
     if (sessionData) {
@@ -82,6 +86,8 @@ async function loadBackendAdmins() {
       backendSessions.forEach((session) => LeanCoffeeSession.saveSession(session));
     }
     if (participantData) backendParticipants = participantData.participants;
+    if (topicData) backendTopics = topicData.topics;
+    if (voteData) backendVotes = voteData.votes;
     render();
     renderKpis();
     renderSessionOverview();
@@ -128,6 +134,24 @@ function sessionItems(key, session) {
         sessionName: participant.sessionName || session.name,
       }));
   }
+  if (key === storageKeys.topics && backendTopics) {
+    return backendTopics
+      .filter((topic) => topic.sessionId === session.id)
+      .map((topic) => ({
+        ...topic,
+        sessionId: topic.sessionId || session.id,
+        sessionName: topic.sessionName || session.name,
+      }));
+  }
+  if (key === storageKeys.votes && backendVotes) {
+    return backendVotes
+      .filter((vote) => vote.sessionId === session.id)
+      .map((vote) => ({
+        ...vote,
+        sessionId: vote.sessionId || session.id,
+        sessionName: vote.sessionName || session.name,
+      }));
+  }
   return LeanCoffeeSession.readItemsForSession(key, session.id).map((item) => ({
     ...item,
     sessionId: item.sessionId || session.id,
@@ -140,7 +164,7 @@ function sessionDate(session) {
 }
 
 function topicSessions() {
-  return visibleSessions().filter((session) => LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id).length > 0);
+  return visibleSessions().filter((session) => sessionItems(storageKeys.topics, session).length > 0);
 }
 
 function sessionAdminSessionId(admin) {
@@ -542,8 +566,8 @@ function renderActiveArchivePreview() {
     activeArchivePreview.innerHTML = "";
     return;
   }
-  const topics = LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id);
-  const votes = LeanCoffeeSession.readItemsForSession(storageKeys.votes, session.id);
+  const topics = sessionItems(storageKeys.topics, session);
+  const votes = sessionItems(storageKeys.votes, session);
   activeArchivePreview.innerHTML = `
     <article class="topic-entry">
       <div class="topic-entry__meta">
@@ -645,8 +669,8 @@ function renderSessionOverview() {
   const participants = backendParticipants
     ? backendParticipants.filter((participant) => participant.sessionId === session.id)
     : LeanCoffeeSession.readItemsForSession(storageKeys.participants, session.id);
-  const topics = LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id);
-  const votes = LeanCoffeeSession.readItemsForSession(storageKeys.votes, session.id);
+  const topics = sessionItems(storageKeys.topics, session);
+  const votes = sessionItems(storageKeys.votes, session);
   const admins = adminItems().filter((admin) => sessionIdForName(admin.team || admin.username) === session.id);
   const topicTitles = topics.flatMap((entry) =>
     entry.topics.map((topic, index) => ({
@@ -759,8 +783,8 @@ function archiveSessionById(sessionId) {
     sessionName: session.name,
     archivedAt: new Date().toLocaleString(),
     archivedBy: adminSession?.username || "Admin",
-    topics: LeanCoffeeSession.readItemsForSession(storageKeys.topics, sessionId),
-    votes: LeanCoffeeSession.readItemsForSession(storageKeys.votes, sessionId),
+    topics: sessionItems(storageKeys.topics, session),
+    votes: sessionItems(storageKeys.votes, session),
     participants: backendParticipants
       ? backendParticipants.filter((participant) => participant.sessionId === sessionId)
       : LeanCoffeeSession.readItemsForSession(storageKeys.participants, sessionId),
@@ -777,15 +801,25 @@ function archiveSessionById(sessionId) {
       .map((participant) => ({ ...participant, archived: true, eventStatus: "Completed" }));
     LeanCoffeeSession.setItemForSession(storageKeys.participants, sessionId, JSON.stringify(participants));
   }
-  LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
-  LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
+  if (backendTopics || backendVotes) {
+    apiRequest("/api/topics/archive-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    }).catch((error) => console.warn(error));
+    backendTopics = backendTopics ? backendTopics.filter((entry) => entry.sessionId !== sessionId) : backendTopics;
+    backendVotes = backendVotes ? backendVotes.filter((vote) => vote.sessionId !== sessionId) : backendVotes;
+  } else {
+    LeanCoffeeSession.removeItemForSession(storageKeys.topics, sessionId);
+    LeanCoffeeSession.removeItemForSession(storageKeys.votes, sessionId);
+  }
   LeanCoffeeSession.removeItemForSession(storageKeys.activeTopic, sessionId);
   render();
 }
 
 function sessionTopicStats(session) {
-  const submissions = LeanCoffeeSession.readItemsForSession(storageKeys.topics, session.id);
-  const votes = LeanCoffeeSession.readItemsForSession(storageKeys.votes, session.id);
+  const submissions = sessionItems(storageKeys.topics, session);
+  const votes = sessionItems(storageKeys.votes, session);
   const topics = submissions.flatMap((entry) =>
     entry.topics.map((topic, index) => ({
       key: `${entry.id}:${index}`,

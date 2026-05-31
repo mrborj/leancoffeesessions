@@ -7,6 +7,8 @@ const votesRemaining = document.querySelector("[data-votes-remaining]");
 const teamLabel = document.querySelector("[data-team-label]");
 const maxVotes = 2;
 const voteSession = window.LeanCoffeeSession;
+let backendTopics = null;
+let backendVotes = null;
 
 function readItems(key) {
   return voteSession.readItems(key);
@@ -14,6 +16,37 @@ function readItems(key) {
 
 function writeItems(key, items) {
   voteSession.writeItems(key, items);
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  if (response.status === 503 || response.status === 404) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+function topicEntries() {
+  return backendTopics || readItems(topicStorageKey);
+}
+
+function voteItems() {
+  return backendVotes || readItems(voteStorageKey);
+}
+
+async function loadBackendData() {
+  try {
+    const sessionId = voteSession.activeSession().id;
+    const [topicData, voteData] = await Promise.all([
+      apiRequest(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`),
+      apiRequest(`/api/votes?sessionId=${encodeURIComponent(sessionId)}`),
+    ]);
+    if (topicData) backendTopics = topicData.topics;
+    if (voteData) backendVotes = voteData.votes;
+    render();
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
 function escapeHtml(value) {
@@ -39,7 +72,7 @@ function currentParticipant() {
 }
 
 function teamTopics(participant) {
-  return readItems(topicStorageKey)
+  return topicEntries()
     .filter((entry) => String(entry.teamNumber) === String(participant.teamNumber))
     .flatMap((entry) =>
       entry.topics.map((topic, index) => ({
@@ -52,14 +85,14 @@ function teamTopics(participant) {
 }
 
 function voteCounts() {
-  return readItems(voteStorageKey).reduce((counts, vote) => {
+  return voteItems().reduce((counts, vote) => {
     counts[vote.topicKey] = (counts[vote.topicKey] || 0) + 1;
     return counts;
   }, {});
 }
 
 function participantVotes(participant) {
-  return readItems(voteStorageKey).filter((vote) => vote.participantId === participant.id);
+  return voteItems().filter((vote) => vote.participantId === participant.id);
 }
 
 function topTopicKeys(topics) {
@@ -108,7 +141,7 @@ function render() {
     : `<div class="kanban-empty">No team topics submitted yet.</div>`;
 }
 
-voteGrid.addEventListener("click", (event) => {
+voteGrid.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-topic-key]");
   if (!button) return;
 
@@ -116,8 +149,7 @@ voteGrid.addEventListener("click", (event) => {
   const votes = participantVotes(participant);
   if (votes.length >= maxVotes) return;
 
-  const allVotes = readItems(voteStorageKey);
-  allVotes.push({
+  const vote = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     topicKey: button.dataset.topicKey,
     participantId: participant.id,
@@ -125,7 +157,28 @@ voteGrid.addEventListener("click", (event) => {
     lastName: participant.lastName,
     teamNumber: participant.teamNumber,
     teamAssociation: participant.businessUnit || participant.specificTeam || participant.philipsTeam,
-  });
+    sessionId: voteSession.activeSession().id,
+  };
+
+  try {
+    const data = await apiRequest("/api/votes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vote),
+    });
+    if (data?.vote) {
+      if (!backendVotes) backendVotes = [];
+      backendVotes = [data.vote, ...backendVotes];
+      render();
+      return;
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const allVotes = readItems(voteStorageKey);
+  allVotes.push(vote);
   writeItems(voteStorageKey, allVotes);
   render();
 });
@@ -145,4 +198,8 @@ window.addEventListener("leanCoffeeTimerTick", (event) => {
 });
 
 render();
-window.setInterval(render, 1000);
+loadBackendData();
+window.setInterval(() => {
+  loadBackendData();
+  render();
+}, 1000);

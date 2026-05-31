@@ -112,6 +112,102 @@ function participantFromRow(row) {
   };
 }
 
+function topicEntryFromRows(rows) {
+  const entries = new Map();
+
+  rows.forEach((row) => {
+    if (!entries.has(row.submission_id)) {
+      entries.set(row.submission_id, {
+        id: row.submission_id,
+        participantId: row.participant_id,
+        firstName: row.first_name || "",
+        lastName: row.last_name || "",
+        participantName: row.participant_name || "",
+        teamNumber: row.team_number || "",
+        teamAssociation: row.team_association || "",
+        philipsTeam: row.philips_team || "",
+        sessionId: row.session_id || "",
+        sessionName: row.session_name || "",
+        archived: row.submission_archived || false,
+        topics: [],
+      });
+    }
+
+    if (row.topic_id) {
+      entries.get(row.submission_id).topics.push({
+        title: row.title || "",
+        details: row.details || "",
+        notes: row.notes || "",
+        painPoints: row.pain_points || "",
+        solutions: row.solutions || "",
+        status: row.status || "For Further Discussion",
+      });
+    }
+  });
+
+  return [...entries.values()].filter((entry) => entry.topics.length > 0);
+}
+
+function voteFromRow(row) {
+  return {
+    id: row.id,
+    topicKey: row.topic_key,
+    participantId: row.participant_id,
+    firstName: row.first_name || "",
+    lastName: row.last_name || "",
+    teamNumber: row.team_number || "",
+    teamAssociation: row.team_association || "",
+    sessionId: row.session_id || "",
+    sessionName: row.session_name || "",
+    archived: row.archived,
+  };
+}
+
+async function loadTopicEntries(sessionId = "") {
+  const values = [];
+  let sessionFilter = "";
+  if (sessionId) {
+    values.push(sessionId);
+    sessionFilter = "AND topic_submissions.session_id = $1";
+  }
+
+  const result = await pool.query(
+    `
+      SELECT
+        topic_submissions.id AS submission_id,
+        topic_submissions.participant_id,
+        topic_submissions.first_name,
+        topic_submissions.last_name,
+        topic_submissions.participant_name,
+        topic_submissions.team_number,
+        topic_submissions.team_association,
+        topic_submissions.philips_team,
+        topic_submissions.session_id,
+        topic_submissions.archived AS submission_archived,
+        sessions.name AS session_name,
+        topics.id AS topic_id,
+        topics.topic_index,
+        topics.title,
+        topics.details,
+        topics.notes,
+        topics.pain_points,
+        topics.solutions,
+        topics.status
+      FROM topic_submissions
+      JOIN sessions ON sessions.id = topic_submissions.session_id
+      LEFT JOIN topics
+        ON topics.submission_id = topic_submissions.id
+        AND topics.archived = false
+      WHERE topic_submissions.archived = false
+        ${sessionFilter}
+      ORDER BY topic_submissions.created_at DESC, topics.topic_index ASC
+    `,
+    values
+  );
+
+  return topicEntryFromRows(result.rows);
+}
+
 async function ensureSessionForAdmin(admin) {
   if (admin.role !== "Session Admin") return null;
 
@@ -184,6 +280,54 @@ async function initializeDatabase() {
       specific_team TEXT,
       session_id TEXT NOT NULL REFERENCES sessions(id),
       event_status TEXT NOT NULL DEFAULT 'Not Started',
+      archived BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS topic_submissions (
+      id TEXT PRIMARY KEY,
+      participant_id TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      participant_name TEXT,
+      team_number TEXT,
+      team_association TEXT,
+      philips_team TEXT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      archived BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS topics (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT NOT NULL REFERENCES topic_submissions(id) ON DELETE CASCADE,
+      topic_index INTEGER NOT NULL,
+      title TEXT,
+      details TEXT,
+      notes TEXT,
+      pain_points TEXT,
+      solutions TEXT,
+      status TEXT NOT NULL DEFAULT 'For Further Discussion',
+      archived BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (submission_id, topic_index)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS votes (
+      id TEXT PRIMARY KEY,
+      topic_key TEXT NOT NULL,
+      participant_id TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      team_number TEXT,
+      team_association TEXT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
       archived BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -451,6 +595,229 @@ async function handleApi(request, response) {
       return true;
     }
     sendJson(response, 200, { ok: true, participant: participantFromRow(result.rows[0]) });
+    return true;
+  }
+
+  if (url.pathname === "/api/topics" && request.method === "GET") {
+    const topics = await loadTopicEntries(url.searchParams.get("sessionId") || "");
+    sendJson(response, 200, { ok: true, topics });
+    return true;
+  }
+
+  if (url.pathname === "/api/topics" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const id = body.id || `topic-${crypto.randomUUID()}`;
+    const topics = Array.isArray(body.topics) ? body.topics : [];
+    const sessionId = body.sessionId || "master-data";
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO topic_submissions (
+            id,
+            participant_id,
+            first_name,
+            last_name,
+            participant_name,
+            team_number,
+            team_association,
+            philips_team,
+            session_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (id) DO UPDATE
+            SET participant_id = EXCLUDED.participant_id,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                participant_name = EXCLUDED.participant_name,
+                team_number = EXCLUDED.team_number,
+                team_association = EXCLUDED.team_association,
+                philips_team = EXCLUDED.philips_team,
+                session_id = EXCLUDED.session_id,
+                archived = false
+        `,
+        [
+          id,
+          body.participantId || "",
+          body.firstName || "",
+          body.lastName || "",
+          body.participantName || "",
+          body.teamNumber || "",
+          body.teamAssociation || "",
+          body.philipsTeam || "",
+          sessionId,
+        ]
+      );
+
+      for (const [index, topic] of topics.entries()) {
+        await client.query(
+          `
+            INSERT INTO topics (
+              id,
+              submission_id,
+              topic_index,
+              title,
+              details,
+              notes,
+              pain_points,
+              solutions,
+              status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (submission_id, topic_index) DO UPDATE
+              SET title = EXCLUDED.title,
+                  details = EXCLUDED.details,
+                  notes = EXCLUDED.notes,
+                  pain_points = EXCLUDED.pain_points,
+                  solutions = EXCLUDED.solutions,
+                  status = EXCLUDED.status,
+                  archived = false
+          `,
+          [
+            `topic-${id}-${index}`,
+            id,
+            index,
+            topic.title || "",
+            topic.details || "",
+            topic.notes || "",
+            topic.painPoints || "",
+            topic.solutions || "",
+            topic.status || "For Further Discussion",
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const entries = await loadTopicEntries(sessionId);
+    sendJson(response, 201, { ok: true, topic: entries.find((entry) => entry.id === id) || null });
+    return true;
+  }
+
+  if (url.pathname === "/api/topics" && request.method === "PATCH") {
+    const body = await readRequestBody(request);
+    const [submissionId, indexValue] = String(body.topicKey || "").split(":");
+    const topicIndex = Number(indexValue);
+
+    if (!submissionId || Number.isNaN(topicIndex)) {
+      sendJson(response, 400, { ok: false, error: "Topic key is required." });
+      return true;
+    }
+
+    const result = await pool.query(
+      `
+        UPDATE topics
+        SET title = COALESCE($3, title),
+            details = COALESCE($4, details),
+            notes = COALESCE($5, notes),
+            pain_points = COALESCE($6, pain_points),
+            solutions = COALESCE($7, solutions),
+            status = COALESCE($8, status),
+            archived = COALESCE($9, archived)
+        WHERE submission_id = $1
+          AND topic_index = $2
+        RETURNING *
+      `,
+      [
+        submissionId,
+        topicIndex,
+        typeof body.title === "string" ? body.title : null,
+        typeof body.details === "string" ? body.details : null,
+        typeof body.notes === "string" ? body.notes : null,
+        typeof body.painPoints === "string" ? body.painPoints : null,
+        typeof body.solutions === "string" ? body.solutions : null,
+        typeof body.status === "string" ? body.status : null,
+        typeof body.archived === "boolean" ? body.archived : null,
+      ]
+    );
+
+    if (!result.rows[0]) {
+      sendJson(response, 404, { ok: false, error: "Topic not found." });
+      return true;
+    }
+
+    sendJson(response, 200, { ok: true });
+    return true;
+  }
+
+  if (url.pathname === "/api/topics/archive-session" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const sessionId = body.sessionId || "";
+    if (!sessionId) {
+      sendJson(response, 400, { ok: false, error: "Session id is required." });
+      return true;
+    }
+    await pool.query("UPDATE topic_submissions SET archived = true WHERE session_id = $1", [sessionId]);
+    await pool.query("UPDATE votes SET archived = true WHERE session_id = $1", [sessionId]);
+    sendJson(response, 200, { ok: true });
+    return true;
+  }
+
+  if (url.pathname === "/api/votes" && request.method === "GET") {
+    const sessionId = url.searchParams.get("sessionId") || "";
+    const values = [];
+    let sessionFilter = "";
+    if (sessionId) {
+      values.push(sessionId);
+      sessionFilter = "AND votes.session_id = $1";
+    }
+    const result = await pool.query(
+      `
+        SELECT
+          votes.*,
+          sessions.name AS session_name
+        FROM votes
+        JOIN sessions ON sessions.id = votes.session_id
+        WHERE votes.archived = false
+          ${sessionFilter}
+        ORDER BY votes.created_at DESC
+      `,
+      values
+    );
+    sendJson(response, 200, { ok: true, votes: result.rows.map(voteFromRow) });
+    return true;
+  }
+
+  if (url.pathname === "/api/votes" && request.method === "POST") {
+    const body = await readRequestBody(request);
+    const id = body.id || `vote-${crypto.randomUUID()}`;
+    const sessionId = body.sessionId || "master-data";
+    const result = await pool.query(
+      `
+        INSERT INTO votes (
+          id,
+          topic_key,
+          participant_id,
+          first_name,
+          last_name,
+          team_number,
+          team_association,
+          session_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *,
+          (SELECT name FROM sessions WHERE sessions.id = votes.session_id) AS session_name
+      `,
+      [
+        id,
+        body.topicKey || "",
+        body.participantId || "",
+        body.firstName || "",
+        body.lastName || "",
+        body.teamNumber || "",
+        body.teamAssociation || "",
+        sessionId,
+      ]
+    );
+    sendJson(response, 201, { ok: true, vote: voteFromRow(result.rows[0]) });
     return true;
   }
 
