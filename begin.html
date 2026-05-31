@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean Sessions Participant Login</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="begin-page image-page event-shell">
+    <main class="participant-login" data-participant-login>
+      <section class="login-panel">
+        <h1>Participant Login</h1>
+        <p>Sign in with the email address and password from your registration.</p>
+        <form class="login-form" data-participant-login-form>
+          <label>
+            Email Address
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Login</button>
+          <p class="login-error" data-participant-login-error aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="session.js"></script>
+    <script src="begin.js"></script>
+  </body>
+</html>

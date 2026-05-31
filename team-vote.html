@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Team Topic Voting</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="begin-page image-page live-board-shell">
+    <main class="vote-page">
+      <header class="live-board-header">
+        <div></div>
+        <div class="timer-widget timer-widget--live">
+          <span>Event Timer</span>
+          <strong data-shared-timer>12:00</strong>
+        </div>
+        <div class="phase-pill">
+          <span>Votes Remaining</span>
+          <strong data-votes-remaining>2 votes</strong>
+        </div>
+      </header>
+      <section class="vote-board">
+        <div class="admin-card__header">
+          <h1>Team Topic Voting</h1>
+          <p data-team-label></p>
+        </div>
+        <div class="vote-grid" data-vote-grid></div>
+      </section>
+    </main>
+    <script src="session.js"></script>
+    <script src="timer.js"></script>
+    <script src="team-vote.js"></script>
+  </body>
+</html>

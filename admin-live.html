@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean Sessions Live Board</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-page image-page live-board-shell">
+    <main class="live-board-page">
+      <header class="live-board-header">
+        <a class="admin-home" href="admin.html" data-admin-home-link>Admin</a>
+        <div class="timer-widget timer-widget--live">
+          <span>Event Timer</span>
+          <strong data-shared-timer>12:00</strong>
+        </div>
+        <div class="phase-pill">
+          <span>Current Agenda</span>
+          <strong data-current-agenda>Waiting to begin</strong>
+        </div>
+      </header>
+
+      <section class="kanban-board" data-kanban-board></section>
+      <section class="admin-card data-view vote-activity-card">
+        <div class="admin-card__header">
+          <h2>Real-Time Voting Activity</h2>
+        </div>
+        <div class="vote-activity-list" data-vote-activity></div>
+      </section>
+    </main>
+    <script src="session.js"></script>
+    <script src="timer.js"></script>
+    <script src="admin-live.js"></script>
+  </body>
+</html>

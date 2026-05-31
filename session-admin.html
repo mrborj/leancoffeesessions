@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean Sessions Session Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-page image-page admin-shell" data-admin-mode="session">
+    <main class="admin-console">
+      <header class="admin-header">
+        <div>
+          <p class="kicker">Lean Sessions</p>
+          <h1>Session Admin</h1>
+        </div>
+        <div class="admin-header__actions">
+          <a class="admin-home" href="index.html">Homepage</a>
+          <button type="button" class="admin-home" data-admin-logout>Logout</button>
+          <div class="timer-widget timer-widget--admin" data-timer-widget>
+            <span>Event Timer</span>
+            <strong data-shared-timer>12:00</strong>
+            <div class="timer-actions">
+              <button type="button" data-timer-start>Start</button>
+              <button type="button" data-timer-pause>Pause</button>
+              <button type="button" data-timer-reset>Reset</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="admin-workspace">
+        <nav class="admin-pane" aria-label="Session admin sections">
+          <button type="button" class="pane-link is-active" data-pane-target="register-participant">
+            Register Participant
+          </button>
+          <button type="button" class="pane-link" data-pane-target="participant-view">
+            Participant View
+          </button>
+          <button type="button" class="pane-link" data-pane-target="show-topics">
+            Show Topics
+          </button>
+          <button type="button" class="pane-link" data-pane-target="archive-topics">
+            Archive Topics and Votes
+          </button>
+          <button type="button" class="pane-link" data-pane-target="archived-participants">
+            Archived Participants
+          </button>
+        </nav>
+
+        <section class="admin-content" aria-live="polite">
+          <form class="admin-card admin-form pane-content is-active" data-pane="register-participant" data-participant-form>
+            <div class="admin-card__header">
+              <h2>Register Participant</h2>
+            </div>
+            <div class="form-grid">
+              <label>
+                Email Address
+                <input name="email" type="email" required />
+              </label>
+              <label>
+                First Name
+                <input name="firstName" required />
+              </label>
+              <label>
+                Last Name
+                <input name="lastName" required />
+              </label>
+              <label>
+                Philips Team
+                <select name="philipsTeam" required data-team-select>
+                  <option value="">Select team</option>
+                  <option>Comm Contracts</option>
+                  <option>Serv Contracts</option>
+                  <option>Comm Sales</option>
+                  <option>Credit Team</option>
+                  <option>Collections</option>
+                  <option>Emergency Care</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>
+                Team Number
+                <input name="teamNumber" required />
+              </label>
+              <label>
+                Password
+                <input name="password" type="password" required />
+              </label>
+              <label>
+                Event Status
+                <select name="eventStatus">
+                  <option>Not Started</option>
+                  <option>Completed</option>
+                </select>
+              </label>
+              <label class="conditional-field" data-business-unit-field hidden>
+                Business Unit Association
+                <input name="businessUnit" />
+              </label>
+              <label class="conditional-field" data-other-team-field hidden>
+                Name of Session
+                <input name="specificTeam" />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Save</button>
+              <a class="button-secondary" href="index.html">Cancel</a>
+            </div>
+          </form>
+
+          <section class="admin-card data-view pane-content" data-pane="participant-view" hidden>
+            <div class="admin-card__header">
+              <h2>Participant View</h2>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Philips Team</th>
+                    <th>Team Number</th>
+                    <th>Extra Detail</th>
+                    <th>Name of Session</th>
+                    <th>Event Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody data-participant-list></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="admin-card data-view pane-content" data-pane="show-topics" hidden>
+            <div class="admin-card__header">
+              <h2>Show Topics</h2>
+            </div>
+        <div class="topic-tools">
+              <label>
+                Name of Session
+                <select name="topicSession" data-topic-session-filter></select>
+              </label>
+              <button type="button" class="button-secondary is-active" data-topic-group="all">All Topics</button>
+              <button type="button" class="button-secondary" data-topic-group="teamNumber">Group by Team Number</button>
+              <button type="button" class="button-secondary" data-topic-group="teamAssociation">Group by Team Associated</button>
+            </div>
+            <div data-topic-list class="topic-list"></div>
+          </section>
+
+          <section class="admin-card data-view pane-content" data-pane="archived-participants" hidden>
+            <div class="admin-card__header">
+              <h2>Archived Participants</h2>
+            </div>
+            <div data-archived-participants class="archive-list"></div>
+          </section>
+
+          <section class="admin-card data-view pane-content" data-pane="archive-topics" hidden>
+            <div class="admin-card__header">
+              <h2>Archive Topics and Votes</h2>
+            </div>
+            <div class="topic-tools">
+              <label>
+                Name of Session
+                <select name="archiveSession" data-archive-session></select>
+              </label>
+              <button type="button" class="button-secondary" data-archive-results>Archive Selected Session</button>
+            </div>
+            <div data-active-archive-preview class="topic-list"></div>
+            <div data-archived-results class="topic-list"></div>
+          </section>
+        </section>
+      </div>
+    </main>
+    <script src="session.js"></script>
+    <script src="timer.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

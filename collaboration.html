@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean Sessions Collaboration Board</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-page image-page live-board-shell">
+    <main class="live-board-page">
+      <header class="live-board-header">
+        <a class="admin-home" href="admin-live.html" data-live-home>Admin Live</a>
+        <div class="timer-widget timer-widget--live">
+          <span>Event Timer</span>
+          <strong data-shared-timer>12:00</strong>
+        </div>
+        <div class="phase-pill">
+          <span>Current Agenda</span>
+          <strong data-current-agenda>Meet with all the Teams</strong>
+        </div>
+      </header>
+
+      <section class="kanban-board" data-collaboration-board></section>
+    </main>
+
+    <div class="topic-modal" data-topic-detail-modal hidden>
+      <section class="topic-dialog">
+        <div class="admin-card__header">
+          <h2 data-detail-title>Topic Details</h2>
+          <button type="button" class="topic-close" data-close-detail-modal>Close</button>
+        </div>
+        <p data-detail-body></p>
+        <div class="topic-edit-fields" data-admin-notes hidden>
+          <label>
+            Notes
+            <textarea name="notes" rows="3"></textarea>
+          </label>
+          <label>
+            Pain Points
+            <textarea name="painPoints" rows="3"></textarea>
+          </label>
+          <label>
+            Potential Solutions
+            <textarea name="solutions" rows="3"></textarea>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option>For Further Discussion</option>
+              <option>Nice to Have</option>
+              <option>For Consideration</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="button" class="button-secondary" data-save-topic-notes>Save Notes</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="session.js"></script>
+    <script src="timer.js"></script>
+    <script src="collaboration.js"></script>
+  </body>
+</html>

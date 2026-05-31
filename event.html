@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Master Data Lean Sessions Event</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="begin-page image-page event-shell">
+    <main class="event-page" data-event-page>
+      <header class="event-header">
+        <div class="participant-badge" data-participant-badge></div>
+        <div class="event-header__right">
+          <button type="button" class="event-logout" data-participant-logout>Logout</button>
+          <div class="timer-widget timer-widget--compact" data-timer-widget>
+            <span>Event Timer</span>
+          <strong data-shared-timer>12:00</strong>
+          </div>
+          <div class="phase-pill phase-pill--compact">
+            <span>Current Agenda</span>
+            <strong data-current-agenda>Waiting to begin</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="event-welcome">
+        <div>
+          <p class="kicker">Master Data</p>
+          <h1 data-session-welcome>Welcome to the Lean Sessions</h1>
+        </div>
+        <div class="event-total" data-event-total></div>
+      </section>
+
+      <section class="roadmap-card" aria-label="Lean Sessions event roadmap">
+        <div class="roadmap" data-roadmap></div>
+      </section>
+
+      <section class="event-actions">
+        <button type="button" class="ready__button event-topic-button" data-open-topic-modal>
+          Submit a Topic
+        </button>
+        <button type="button" class="ready__button event-topic-button event-topic-button--secondary" data-open-my-topics>
+          View Submitted Topics
+        </button>
+      </section>
+    </main>
+    <div class="agenda-notice" data-agenda-notice hidden></div>
+
+    <div class="topic-modal" data-topic-modal hidden>
+      <form class="topic-dialog" data-topic-form>
+        <div class="admin-card__header">
+          <h2>Submit a Topic</h2>
+          <button type="button" class="topic-close" data-close-topic-modal aria-label="Close topic form">Close</button>
+        </div>
+        <div class="topic-form-grid">
+          <label>
+            Topic 1
+            <input name="topic1" />
+          </label>
+          <label>
+            Details
+            <textarea name="details1" rows="3"></textarea>
+          </label>
+          <label>
+            Topic 2
+            <input name="topic2" />
+          </label>
+          <label>
+            Details
+            <textarea name="details2" rows="3"></textarea>
+          </label>
+          <label>
+            Topic 3
+            <input name="topic3" />
+          </label>
+          <label>
+            Details
+            <textarea name="details3" rows="3"></textarea>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">Save</button>
+          <button type="button" class="button-secondary" data-close-topic-modal>Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="topic-modal" data-my-topics-modal hidden>
+      <section class="topic-dialog">
+        <div class="admin-card__header">
+          <h2>Submitted Topics</h2>
+          <button type="button" class="topic-close" data-close-my-topics aria-label="Close submitted topics">Close</button>
+        </div>
+        <div class="topic-list" data-my-topics-list></div>
+      </section>
+    </div>
+
+    <script src="session.js"></script>
+    <script src="timer.js"></script>
+    <script src="event.js"></script>
+  </body>
+</html>

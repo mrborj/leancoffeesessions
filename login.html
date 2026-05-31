@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean Sessions Login</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="login-page image-page">
+    <main class="login-panel" data-login-panel>
+      <h1>Admin Login</h1>
+      <p>Sign in to continue.</p>
+      <form class="login-form" data-login-form>
+        <label>
+          Username
+          <input name="username" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit">Login</button>
+        <p class="login-error" data-login-error aria-live="polite"></p>
+      </form>
+    </main>
+    <script src="session.js"></script>
+    <script src="login.js"></script>
+  </body>
+</html>

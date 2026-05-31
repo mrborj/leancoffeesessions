@@ -1,0 +1,17 @@
+{
+  "name": "lean-sessions",
+  "version": "1.0.0",
+  "description": "Localhost package for the Lean Sessions web application.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1"
+  }
+}
