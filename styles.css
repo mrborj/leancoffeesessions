@@ -141,14 +141,6 @@ h1 {
   text-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.48);
 }
 
-h2 {
-  font-size: clamp(2rem, 4vw, 4rem);
-}
-
-h3 {
-  font-size: clamp(1.25rem, 2vw, 1.75rem);
-}
-
 .scroll-cue {
   position: absolute;
   bottom: 1.6rem;
@@ -173,11 +165,12 @@ h3 {
 
 .hero .eyebrow,
 .hero .kicker {
-  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+  font-size: clamp(0.78rem, 1.4vw, 0.95rem);
 }
 
 .hero h1 {
-  font-size: clamp(5.2rem, 16vw, 15rem);
+  font-size: clamp(3.4rem, 10vw, 9.8rem);
+  line-height: 0.88;
 }
 
 .section-panel,
@@ -202,7 +195,7 @@ h3 {
   max-width: 21ch;
   margin-bottom: 0;
   color: #fff;
-  font-size: clamp(2.75rem, 6.4vw, 6.8rem);
+  font-size: clamp(2rem, 5.6vw, 5.7rem);
   font-weight: 900;
   line-height: 1.04;
   text-wrap: balance;
@@ -1000,55 +993,6 @@ td {
   align-items: stretch;
 }
 
-.admin-page .admin-console {
-  font-size: 1.1875rem;
-}
-
-.admin-page .admin-home,
-.admin-page .button-secondary,
-.admin-page .admin-form button,
-.admin-page .row-actions button,
-.admin-page .pane-link,
-.admin-page .archive-item,
-.admin-page .topic-tools,
-.admin-page td {
-  font-size: 1.1375rem;
-}
-
-.admin-page th,
-.admin-page .admin-form label,
-.admin-page .topic-entry__meta,
-.admin-page .kpi-card span,
-.admin-page .timer-widget span,
-.admin-page .topic-entry__item small {
-  font-size: 0.9475rem;
-}
-
-.admin-page .admin-form input,
-.admin-page .admin-form select,
-.admin-page .table-input,
-.admin-page .topic-edit-fields input,
-.admin-page .topic-edit-fields textarea {
-  font-size: 1.1875rem;
-}
-
-.admin-page .admin-card h2,
-.admin-page .archive-section h3 {
-  font-size: clamp(1.3875rem, 2vw, 1.7375rem);
-}
-
-.admin-page .topic-entry__item h3 {
-  font-size: 1.1875rem;
-}
-
-.admin-page .kpi-card strong {
-  font-size: clamp(1.3875rem, 3vw, 2.1875rem);
-}
-
-.admin-page .timer-widget strong {
-  font-size: clamp(2.1875rem, 4.5vw, 3.7875rem);
-}
-
 .countdown-overlay {
   position: fixed;
   inset: 0;
@@ -1280,7 +1224,6 @@ td {
   min-height: 100vh;
   width: 100%;
   padding: clamp(1rem, 3vw, 2rem);
-  font-size: 1.1875rem;
 }
 
 .event-header {
@@ -1357,27 +1300,17 @@ td {
 .event-welcome h1 {
   max-width: 26ch;
   margin-bottom: 0;
-  font-size: clamp(2.7rem, 5vw, 5.4rem);
+  font-size: clamp(2rem, 4.2vw, 4.6rem);
   line-height: 1.02;
   text-shadow: none;
 }
 
-.event-welcome p,
-.event-actions,
-.event-topic-button,
-.event-topic-button--secondary,
-.participant-badge,
-.event-logout,
-.topic-close {
-  font-size: 1.1875rem;
-}
-
 .participant-badge strong {
-  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
 }
 
 .participant-badge span {
-  font-size: 1.0875rem;
+  font-size: 0.9rem;
 }
 
 .roadmap-card {
@@ -1547,7 +1480,7 @@ td {
   max-width: 12.5rem;
   margin: 0.45rem 0 0.3rem;
   color: #121212;
-  font-size: 1.0275rem;
+  font-size: 0.9rem;
   line-height: 1.12;
   text-align: center;
 }
@@ -1555,7 +1488,7 @@ td {
 .roadmap-copy p {
   margin: 0 0 0.25rem;
   color: #969696;
-  font-size: 0.9075rem;
+  font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
@@ -1570,7 +1503,7 @@ td {
   padding: 0.2rem 0.75rem;
   color: #fff;
   background: var(--node-color, var(--philips-blue));
-  font-size: 0.8675rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
@@ -1578,16 +1511,16 @@ td {
   position: relative;
   z-index: 1;
   display: grid;
-  width: 3.7rem;
-  height: 3.7rem;
+  width: 4.8rem;
+  height: 4.8rem;
   place-items: center;
-  border: 0.35rem solid var(--node-color, var(--philips-blue));
+  border: 0.4rem solid var(--node-color, var(--philips-blue));
   border-radius: 50%;
   color: var(--node-color, var(--philips-blue));
   background:
     radial-gradient(circle, rgba(11, 94, 215, 0.08), transparent 58%),
-    #fff;
-  font-size: 1.0075rem;
+    rgba(255, 255, 255, 0.5);
+  font-size: 1rem;
   font-weight: 900;
   box-shadow: 0 0.6rem 1.2rem rgba(64, 49, 47, 0.12);
   overflow: hidden;
@@ -1597,33 +1530,28 @@ td {
 .roadmap-icon::before {
   content: "";
   position: absolute;
-  inset: 0.48rem;
+  inset: -0.18rem;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 68% 30%, rgba(255, 255, 255, 0.98) 0 0.16rem, transparent 0.18rem),
-    radial-gradient(circle at 50% 50%, rgba(255, 240, 186, 0.56), rgba(11, 94, 215, 0.18) 48%, transparent 68%);
+  border: 0.25rem solid transparent;
+  border-top-color: rgba(255, 240, 186, 0.95);
+  border-right-color: rgba(255, 255, 255, 0.7);
   box-shadow:
-    0 0 0.72rem rgba(255, 240, 186, 0.82),
-    inset 0 0 0.88rem rgba(11, 94, 215, 0.28);
-  animation: orbitGlow 2.8s linear infinite;
+    0 0 0.8rem rgba(255, 240, 186, 0.75),
+    inset 0 0 0.8rem rgba(255, 240, 186, 0.25);
+  animation: orbitGlow 2.2s linear infinite;
   z-index: -1;
 }
 
 .roadmap-icon::after {
   content: "";
   position: absolute;
-  top: 0.92rem;
-  left: 0.92rem;
-  width: 0.42rem;
-  height: 0.42rem;
+  inset: 0.35rem;
   border-radius: 50%;
-  background: #fff0ba;
+  border: 1px solid rgba(255, 240, 186, 0.34);
+  background: transparent;
   box-shadow:
-    0 0 0.38rem #fff,
-    0 0 0.82rem #fff0ba,
-    0 0 1.15rem rgba(11, 94, 215, 0.72);
-  transform-origin: 0.92rem 0.92rem;
-  animation: orbitStar 2.8s linear infinite;
+    0 0 0.85rem rgba(255, 240, 186, 0.58),
+    inset 0 0 0.75rem rgba(11, 94, 215, 0.18);
 }
 
 .roadmap-node,
@@ -1672,32 +1600,23 @@ td {
 
 @keyframes orbitGlow {
   from {
-    transform: rotate(0deg) scale(0.92);
-    opacity: 0.68;
+    transform: rotate(0deg);
+    opacity: 0.62;
   }
   50% {
-    transform: rotate(180deg) scale(1.08);
+    transform: rotate(180deg);
     opacity: 1;
   }
   to {
-    transform: rotate(360deg) scale(0.92);
-    opacity: 0.68;
-  }
-}
-
-@keyframes orbitStar {
-  from {
-    transform: rotate(0deg) translateX(0.78rem) rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg) translateX(0.78rem) rotate(-360deg);
+    transform: rotate(360deg);
+    opacity: 0.62;
   }
 }
 
 .event-total {
   margin: 0;
   color: #fff0ba;
-  font-size: clamp(1.1875rem, 2vw, 1.4375rem);
+  font-size: clamp(1rem, 2vw, 1.25rem);
   font-weight: 900;
   text-align: right;
   white-space: nowrap;
@@ -1765,7 +1684,6 @@ td {
   width: min(1500px, 100%);
   margin: 0 auto;
   overflow: visible;
-  font-size: 1.1875rem;
 }
 
 .live-board-header {
@@ -1801,13 +1719,13 @@ td {
 
 .phase-pill span {
   color: #dbe8ff;
-  font-size: 0.9075rem;
+  font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .phase-pill strong {
-  font-size: clamp(1.1875rem, 2vw, 1.5375rem);
+  font-size: clamp(1rem, 2vw, 1.35rem);
   line-height: 1.1;
 }
 
@@ -1831,7 +1749,7 @@ td {
 .kanban-column h2 {
   margin: 0 0 0.8rem;
   color: #fff;
-  font-size: 1.2875rem;
+  font-size: 1.1rem;
 }
 
 .kanban-notes {
@@ -1877,7 +1795,7 @@ td {
 
 .sticky-note h3 {
   margin: 0 0 0.45rem;
-  font-size: 1.2375rem;
+  font-size: 1.05rem;
   line-height: 1.12;
 }
 
@@ -1908,7 +1826,6 @@ td {
 .sticky-note small {
   color: rgba(43, 37, 25, 0.68);
   font-weight: 800;
-  font-size: 0.9075rem;
 }
 
 .kanban-empty {
@@ -1938,7 +1855,6 @@ td {
   margin: 0 auto;
   padding: clamp(1rem, 3vw, 2rem);
   overflow: visible;
-  font-size: 1.1875rem;
 }
 
 .vote-board {
@@ -1952,7 +1868,7 @@ td {
 
 .vote-board h1 {
   margin: 0;
-  font-size: clamp(2.3rem, 4.8vw, 4.2rem);
+  font-size: clamp(1.8rem, 4vw, 3.4rem);
   line-height: 1;
   text-shadow: none;
 }
@@ -1992,7 +1908,7 @@ td {
 
 .vote-card h2 {
   margin: 0 0 0.45rem;
-  font-size: 1.3675rem;
+  font-size: 1.18rem;
 }
 
 .vote-card p {
@@ -2157,12 +2073,11 @@ td {
   background: rgba(31, 22, 21, 0.68);
   box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(18px);
-  font-size: 1.1875rem;
 }
 
 .login-panel h1 {
   margin-bottom: 0.5rem;
-  font-size: clamp(2.5rem, 5.8vw, 4.2rem);
+  font-size: clamp(2rem, 5vw, 3.4rem);
   line-height: 1;
   text-shadow: none;
 }
@@ -2182,7 +2097,7 @@ td {
   display: grid;
   gap: 0.45rem;
   color: #dbe8ff;
-  font-size: 1.0075rem;
+  font-size: 0.82rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -2219,7 +2134,7 @@ td {
   min-height: 1.25rem;
   margin: 0;
   color: #fff0ba;
-  font-size: 1.1075rem;
+  font-size: 0.92rem;
 }
 
 .login-panel.is-authenticated {
