@@ -985,6 +985,63 @@ td {
   cursor: pointer;
 }
 
+.timer-actions--live {
+  justify-content: center;
+}
+
+.delete-preview-card .topic-entry__grid {
+  align-items: stretch;
+}
+
+.admin-page .admin-console {
+  font-size: 1.1875rem;
+}
+
+.admin-page .admin-home,
+.admin-page .button-secondary,
+.admin-page .admin-form button,
+.admin-page .row-actions button,
+.admin-page .pane-link,
+.admin-page .archive-item,
+.admin-page .topic-tools,
+.admin-page td {
+  font-size: 1.1375rem;
+}
+
+.admin-page th,
+.admin-page .admin-form label,
+.admin-page .topic-entry__meta,
+.admin-page .kpi-card span,
+.admin-page .timer-widget span,
+.admin-page .topic-entry__item small {
+  font-size: 0.9475rem;
+}
+
+.admin-page .admin-form input,
+.admin-page .admin-form select,
+.admin-page .table-input,
+.admin-page .topic-edit-fields input,
+.admin-page .topic-edit-fields textarea {
+  font-size: 1.1875rem;
+}
+
+.admin-page .admin-card h2,
+.admin-page .archive-section h3 {
+  font-size: clamp(1.3875rem, 2vw, 1.7375rem);
+}
+
+.admin-page .topic-entry__item h3 {
+  font-size: 1.1875rem;
+}
+
+.admin-page .kpi-card strong {
+  font-size: clamp(1.3875rem, 3vw, 2.1875rem);
+}
+
+.admin-page .timer-widget strong {
+  font-size: clamp(2.1875rem, 4.5vw, 3.7875rem);
+}
+
 .countdown-overlay {
   position: fixed;
   inset: 0;
