@@ -9,10 +9,15 @@
   <body class="admin-page image-page live-board-shell">
     <main class="live-board-page">
       <header class="live-board-header">
-        <a class="admin-home" href="admin-live.html" data-live-home>Admin Live</a>
+        <a class="admin-home" href="admin.html" data-live-home>Dashboard</a>
         <div class="timer-widget timer-widget--live">
           <span>Event Timer</span>
           <strong data-shared-timer>12:00</strong>
+          <div class="timer-actions timer-actions--live">
+            <button type="button" data-timer-pause>Pause</button>
+            <button type="button" data-timer-resume>Resume</button>
+            <button type="button" data-timer-reset>Reset</button>
+          </div>
         </div>
         <div class="phase-pill">
           <span>Current Agenda</span>

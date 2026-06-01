@@ -287,7 +287,10 @@ function resetTimer() {
   writeTimer(defaultTimer());
   sessionStorage.removeItem(adminConclusionClosedKey());
   renderTimer();
-  if (isAdminLiveView() && window.location.pathname.toLowerCase().endsWith("/admin-live.html")) {
+  const path = window.location.pathname.toLowerCase();
+  const isAdminCollaborationView =
+    path.endsWith("/collaboration.html") && new URLSearchParams(window.location.search).get("admin") === "1";
+  if (isAdminLiveView() && (path.endsWith("/admin-live.html") || isAdminCollaborationView)) {
     const admin = timerSession.adminSession();
     window.location.href = admin?.role === "Session Admin" ? "session-admin.html" : "admin.html";
   }

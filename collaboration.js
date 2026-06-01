@@ -15,6 +15,7 @@ const collabSession = window.LeanCoffeeSession;
 let activeTopicKey = "";
 let backendTopics = null;
 let backendVotes = null;
+let adminTopicDraftDirty = false;
 
 function readItems(key) {
   return collabSession.readItems(key);
@@ -50,7 +51,9 @@ async function refreshBackendData() {
     if (topicData) backendTopics = topicData.topics;
     if (voteData) backendVotes = voteData.votes;
     renderBoard();
-    if (activeTopicKey && !detailModal.hidden) openTopicDetail(activeTopicKey);
+    if (activeTopicKey && !detailModal.hidden) {
+      openTopicDetail(activeTopicKey, { preserveAdminFields: isAdmin });
+    }
   } catch (error) {
     console.warn(error);
   }
@@ -130,6 +133,10 @@ if (!isAdmin && liveHome) {
   liveHome.remove();
 }
 
+if (isAdmin && liveHome && collabSession.adminSession()?.role === "Session Admin") {
+  liveHome.href = "session-admin.html";
+}
+
 if (!isAdmin) {
   closeDetail.hidden = true;
   saveNotes.hidden = true;
@@ -151,13 +158,19 @@ board.addEventListener("click", (event) => {
   if (!isAdmin) return;
 
   activeTopicKey = button.dataset.topicKey;
+  adminTopicDraftDirty = false;
   collabSession.setItem(activeTopicStorageKey, activeTopicKey);
   openTopicDetail(activeTopicKey);
 });
 
 closeDetail.addEventListener("click", () => {
   detailModal.hidden = true;
+  adminTopicDraftDirty = false;
   if (isAdmin) collabSession.setItem(activeTopicStorageKey, "");
+});
+
+adminNotes.addEventListener("input", () => {
+  if (isAdmin) adminTopicDraftDirty = true;
 });
 
 saveNotes.addEventListener("click", async () => {
@@ -193,12 +206,20 @@ saveNotes.addEventListener("click", async () => {
     writeItems(topicStorageKey, entries);
   }
 
+  adminTopicDraftDirty = false;
   renderBoard();
   detailModal.hidden = true;
   collabSession.setItem(activeTopicStorageKey, "");
+  await refreshBackendData();
 });
 
-function openTopicDetail(topicKey) {
+function openTopicDetail(topicKey, options = {}) {
+  const preserveAdminFields =
+    options.preserveAdminFields &&
+    isAdmin &&
+    !detailModal.hidden &&
+    activeTopicKey === topicKey &&
+    adminTopicDraftDirty;
   activeTopicKey = topicKey;
   const found = findTopic(activeTopicKey);
   if (!found) return;
@@ -212,17 +233,21 @@ function openTopicDetail(topicKey) {
     <br><br><strong>Status:</strong> ${escapeHtml(found.topic.status || "For Further Discussion")}
   `;
   adminNotes.hidden = false;
-  adminNotes.querySelector('[name="notes"]').value = found.topic.notes || "";
-  adminNotes.querySelector('[name="painPoints"]').value = found.topic.painPoints || "";
-  adminNotes.querySelector('[name="solutions"]').value = found.topic.solutions || "";
-  adminNotes.querySelector('[name="status"]').value = found.topic.status || "For Further Discussion";
+  if (!preserveAdminFields) {
+    adminNotes.querySelector('[name="notes"]').value = found.topic.notes || "";
+    adminNotes.querySelector('[name="painPoints"]').value = found.topic.painPoints || "";
+    adminNotes.querySelector('[name="solutions"]').value = found.topic.solutions || "";
+    adminNotes.querySelector('[name="status"]').value = found.topic.status || "For Further Discussion";
+  }
   detailModal.hidden = false;
 }
 
 window.addEventListener("storage", (event) => {
   if (event.key === collabSession.key(topicStorageKey) || event.key === collabSession.key(voteStorageKey)) {
     renderBoard();
-    if (activeTopicKey && !detailModal.hidden) openTopicDetail(activeTopicKey);
+    if (activeTopicKey && !detailModal.hidden) {
+      openTopicDetail(activeTopicKey, { preserveAdminFields: isAdmin });
+    }
   }
   if (event.key === collabSession.key(activeTopicStorageKey)) {
     if (event.newValue) {
