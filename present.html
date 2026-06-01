@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Present Lean Sessions</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="presentation-page">
+    <main class="presentation-stage" aria-live="polite">
+      <a class="presentation-close" href="session-admin.html" aria-label="Close presentation">X</a>
+
+      <section class="presentation-slide is-active" data-presentation-slide>
+        <p>Philips Blue Meets Coffee Focus</p>
+        <h1>Lean Coffee Session</h1>
+      </section>
+
+      <section class="presentation-slide" data-presentation-slide hidden>
+        <p>A structured, agenda-less meeting</p>
+        <h1>Build the Agenda Together</h1>
+      </section>
+
+      <section class="presentation-slide" data-presentation-slide hidden>
+        <p>Brainstorm, vote, discuss, and decide</p>
+        <h1>Make Every Minute Count</h1>
+      </section>
+
+      <button type="button" class="presentation-arrow presentation-arrow--left" data-presentation-prev aria-label="Previous slide">
+        &#8249;
+      </button>
+      <button type="button" class="presentation-arrow presentation-arrow--right" data-presentation-next aria-label="Next slide">
+        &#8250;
+      </button>
+    </main>
+
+    <script src="session.js"></script>
+    <script src="present.js"></script>
+  </body>
+</html>

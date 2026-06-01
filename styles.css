@@ -2027,6 +2027,155 @@ td {
   background: rgba(11, 94, 215, 0.28);
 }
 
+.presentation-menu-link {
+  display: block;
+  text-decoration: none;
+}
+
+.presentation-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 12%, rgba(11, 94, 215, 0.58), transparent 30rem),
+    radial-gradient(circle at 82% 76%, rgba(118, 86, 64, 0.66), transparent 34rem),
+    linear-gradient(135deg, #111827 0%, var(--coffee-dark) 46%, #062d72 100%);
+}
+
+.presentation-stage {
+  position: relative;
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.presentation-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(11, 94, 215, 0.36), rgba(64, 49, 47, 0.54)),
+    url("assets/lean-coffee-hero.png") center / cover;
+  opacity: 0.42;
+  transform: scale(1.04);
+}
+
+.presentation-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(7, 10, 18, 0.2), rgba(7, 10, 18, 0.72)),
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.09), transparent 36rem);
+}
+
+.presentation-close {
+  position: fixed;
+  top: clamp(1rem, 2.4vw, 2rem);
+  right: clamp(1rem, 2.4vw, 2rem);
+  z-index: 5;
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(18, 14, 14, 0.34);
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.presentation-close:hover,
+.presentation-close:focus-visible {
+  background: rgba(11, 94, 215, 0.72);
+  transform: scale(1.05);
+}
+
+.presentation-slide {
+  width: min(1200px, calc(100% - 2rem));
+  padding: clamp(2rem, 8vw, 7rem) 1rem;
+  text-align: center;
+  animation: presentationEnter 760ms cubic-bezier(0.2, 0.82, 0.2, 1) both;
+}
+
+.presentation-slide p {
+  margin-bottom: clamp(1rem, 2vw, 1.8rem);
+  color: #dbe8ff;
+  font-size: clamp(0.95rem, 2vw, 1.35rem);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.presentation-slide h1 {
+  max-width: 10ch;
+  margin: 0 auto;
+  color: #fff;
+  font-size: clamp(4.4rem, 15vw, 13rem);
+  line-height: 0.84;
+  text-shadow:
+    0 1.5rem 4rem rgba(0, 0, 0, 0.36),
+    0 0 2.4rem rgba(11, 94, 215, 0.34);
+}
+
+.presentation-arrow {
+  position: fixed;
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 5;
+  display: grid;
+  width: clamp(3.2rem, 7vw, 5rem);
+  height: clamp(3.2rem, 7vw, 5rem);
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.52);
+  cursor: pointer;
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  line-height: 1;
+  backdrop-filter: blur(10px);
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.presentation-arrow:hover,
+.presentation-arrow:focus-visible {
+  background: rgba(11, 94, 215, 0.34);
+  color: rgba(255, 255, 255, 0.86);
+  transform: translateY(-0.14rem);
+}
+
+.presentation-arrow--left {
+  left: clamp(1rem, 3vw, 2rem);
+}
+
+.presentation-arrow--right {
+  right: clamp(1rem, 3vw, 2rem);
+}
+
+@keyframes presentationEnter {
+  from {
+    opacity: 0;
+    transform: translateY(2rem) scale(0.96);
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 .topic-form-grid {
   display: grid;
   gap: 0.9rem;
