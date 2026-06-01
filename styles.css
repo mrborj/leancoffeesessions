@@ -2072,6 +2072,13 @@ td {
     radial-gradient(circle at center, rgba(255, 255, 255, 0.09), transparent 36rem);
 }
 
+.presentation-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 .presentation-close {
   position: fixed;
   top: clamp(1rem, 2.4vw, 2rem);
@@ -2101,7 +2108,7 @@ td {
 
 .presentation-slide {
   width: min(1200px, calc(100% - 2rem));
-  padding: clamp(2rem, 8vw, 7rem) 1rem;
+  padding: clamp(2rem, 7vw, 6rem) 1rem;
   text-align: center;
   animation: presentationEnter 760ms cubic-bezier(0.2, 0.82, 0.2, 1) both;
 }
@@ -2115,14 +2122,197 @@ td {
 }
 
 .presentation-slide h1 {
-  max-width: 10ch;
+  max-width: 14ch;
   margin: 0 auto;
   color: #fff;
-  font-size: clamp(4.4rem, 15vw, 13rem);
-  line-height: 0.84;
+  font-size: clamp(2.8rem, 8.5vw, 7.2rem);
+  line-height: 0.92;
   text-shadow:
     0 1.5rem 4rem rgba(0, 0, 0, 0.36),
     0 0 2.4rem rgba(11, 94, 215, 0.34);
+}
+
+.presentation-slide--title h1 {
+  max-width: 12ch;
+  font-size: clamp(3.2rem, 10vw, 8rem);
+}
+
+.presentation-copy {
+  width: min(860px, 100%);
+  margin: clamp(1.4rem, 3vw, 2rem) auto 0;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.presentation-copy p {
+  margin: 0 auto 0.8rem;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  font-weight: 700;
+  line-height: 1.42;
+  text-transform: none;
+}
+
+.gooey-title {
+  position: relative;
+  filter: url("#gooey-filter");
+  animation: gooeyMorph 1250ms ease both;
+}
+
+.gooey-title::after {
+  content: attr(data-morph-text);
+  position: absolute;
+  inset: 0;
+  color: rgba(11, 94, 215, 0.65);
+  filter: blur(18px);
+  transform: scale(1.06);
+  z-index: -1;
+}
+
+.sliced-title {
+  display: grid;
+  gap: 0.12em;
+  overflow: hidden;
+}
+
+.sliced-title span {
+  display: block;
+  animation: slicedSwoop 840ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sliced-title span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.laser-title {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  color: #fff;
+  letter-spacing: 0;
+}
+
+.laser-title::after {
+  content: "";
+  position: absolute;
+  top: 4%;
+  bottom: 4%;
+  left: -30%;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), rgba(11, 94, 215, 0.72), transparent);
+  filter: blur(1px);
+  transform: skewX(-18deg);
+  animation: laserSweep 1400ms ease-in-out both;
+}
+
+.presentation-agenda-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.6vw, 1rem);
+  width: min(980px, 100%);
+  margin: clamp(1.5rem, 3vw, 2.4rem) auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presentation-agenda-overview li {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 8rem;
+  align-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
+  animation: agendaCardIn 680ms ease both;
+}
+
+.presentation-agenda-overview li:nth-child(2) { animation-delay: 70ms; }
+.presentation-agenda-overview li:nth-child(3) { animation-delay: 140ms; }
+.presentation-agenda-overview li:nth-child(4) { animation-delay: 210ms; }
+.presentation-agenda-overview li:nth-child(5) { animation-delay: 280ms; }
+.presentation-agenda-overview li:nth-child(6) { animation-delay: 350ms; }
+
+.presentation-agenda-overview span {
+  color: #8fbdff;
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.presentation-slide--agenda h1 {
+  max-width: 16ch;
+  font-size: clamp(2.5rem, 6.5vw, 5.6rem);
+  animation: focusZoomIn 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.presentation-slide--morph-focus h1 {
+  animation: focusMorphZoom 920ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.agenda-focus {
+  width: min(980px, 100%);
+  margin: clamp(1.5rem, 3vw, 2.2rem) auto 0;
+}
+
+.agenda-focus p {
+  width: min(760px, 100%);
+  margin: 1.2rem auto 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  font-weight: 700;
+  line-height: 1.42;
+  text-transform: none;
+}
+
+.agenda-rail {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.agenda-rail::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f9a51a, #3cb7d8, #15bd78, #2b8be8);
+  transform: translateY(-50%);
+  opacity: 0.72;
+}
+
+.agenda-rail span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 0.35rem solid rgba(255, 255, 255, 0.48);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(30, 22, 20, 0.82);
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-weight: 900;
+  transform: scale(0.76);
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    transform 220ms ease;
+}
+
+.agenda-rail span.is-active {
+  border-color: #8fbdff;
+  color: #fff;
+  background: var(--philips-blue);
+  box-shadow:
+    0 0 0 0.8rem rgba(11, 94, 215, 0.16),
+    0 1rem 2.4rem rgba(0, 0, 0, 0.34);
+  transform: scale(1.18);
+  animation: agendaPulse 1800ms ease-in-out infinite;
 }
 
 .presentation-arrow {
@@ -2173,6 +2363,118 @@ td {
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
+  }
+}
+
+@keyframes gooeyMorph {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+    filter: blur(22px);
+  }
+
+  48% {
+    opacity: 0.78;
+    transform: scale(1.08);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes slicedSwoop {
+  from {
+    opacity: 0;
+    transform: translate3d(-34%, 1.2rem, 0) skewX(-16deg);
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) skewX(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes laserSweep {
+  0% {
+    left: -35%;
+    opacity: 0;
+  }
+
+  18%,
+  76% {
+    opacity: 1;
+  }
+
+  100% {
+    left: 108%;
+    opacity: 0;
+  }
+}
+
+@keyframes agendaCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(1.2rem) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes focusZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.64);
+    filter: blur(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes focusMorphZoom {
+  0% {
+    opacity: 0;
+    transform: scale(1.24);
+    filter: blur(18px);
+  }
+
+  42% {
+    opacity: 0.58;
+    transform: scale(0.82);
+    filter: blur(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes agendaPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0.55rem rgba(11, 94, 215, 0.14),
+      0 1rem 2.4rem rgba(0, 0, 0, 0.34);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1rem rgba(11, 94, 215, 0.26),
+      0 1rem 2.4rem rgba(0, 0, 0, 0.34);
   }
 }
 
@@ -2340,6 +2642,38 @@ td {
 
   .step__copy p:last-child {
     font-size: 1.06rem;
+  }
+
+  .presentation-slide {
+    padding: 4.5rem 1rem 6rem;
+  }
+
+  .presentation-slide h1,
+  .presentation-slide--title h1,
+  .presentation-slide--agenda h1 {
+    font-size: clamp(2.35rem, 14vw, 4.4rem);
+  }
+
+  .presentation-agenda-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .presentation-agenda-overview li {
+    min-height: auto;
+    padding: 0.85rem;
+  }
+
+  .agenda-rail {
+    gap: 0.28rem;
+  }
+
+  .agenda-rail span {
+    border-width: 0.22rem;
+    font-size: 0.8rem;
+  }
+
+  .agenda-rail span.is-active {
+    transform: scale(1.04);
   }
 
   .admin-workspace,

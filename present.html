@@ -8,21 +8,123 @@
   </head>
   <body class="presentation-page">
     <main class="presentation-stage" aria-live="polite">
+      <svg class="presentation-filters" aria-hidden="true" focusable="false">
+        <filter id="gooey-filter">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+          <feColorMatrix
+            in="blur"
+            mode="matrix"
+            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
+            result="gooey"
+          />
+          <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
+        </filter>
+      </svg>
       <a class="presentation-close" href="session-admin.html" aria-label="Close presentation">X</a>
 
-      <section class="presentation-slide is-active" data-presentation-slide>
+      <section class="presentation-slide presentation-slide--title is-active" data-presentation-slide>
         <p>Philips Blue Meets Coffee Focus</p>
         <h1>Lean Coffee Session</h1>
       </section>
 
-      <section class="presentation-slide" data-presentation-slide hidden>
-        <p>A structured, agenda-less meeting</p>
-        <h1>Build the Agenda Together</h1>
+      <section class="presentation-slide presentation-slide--gooey" data-presentation-slide hidden>
+        <p>Where It Started</p>
+        <h1 class="gooey-title" data-morph-text="Seattle, 2009">Seattle, 2009</h1>
+        <div class="presentation-copy">
+          <p>Lean Coffee was created by Jim Benson and Jeremy Lightsmith as a lightweight way to bring people together without building a heavy meeting structure first.</p>
+          <p>The idea was simple: let the people in the room build the agenda, vote on what matters, and keep each conversation time-boxed.</p>
+        </div>
       </section>
 
-      <section class="presentation-slide" data-presentation-slide hidden>
-        <p>Brainstorm, vote, discuss, and decide</p>
-        <h1>Make Every Minute Count</h1>
+      <section class="presentation-slide presentation-slide--sliced" data-presentation-slide hidden>
+        <p>The Concept</p>
+        <h1 class="sliced-title" aria-label="Structured, agenda-less">
+          <span>Structured,</span>
+          <span>agenda-less</span>
+        </h1>
+        <div class="presentation-copy">
+          <p>Participants propose the topics, vote on priorities, and discuss the highest-value items first.</p>
+          <p>The facilitator protects the flow: focused discussion, visible topics, clear timing, and democratic decision-making.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--laser" data-presentation-slide hidden>
+        <p>The Full Session Flow</p>
+        <h1 class="laser-title">01 to 06</h1>
+        <ol class="presentation-agenda-overview">
+          <li><span>01</span> Meeting the Entire Team</li>
+          <li><span>02</span> Creating a Topic</li>
+          <li><span>03</span> Discussing Which Topic</li>
+          <li><span>04</span> Meet with all the Teams</li>
+          <li><span>05</span> Discussing and Collaborating</li>
+          <li><span>06</span> Closing and Takeaways</li>
+        </ol>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda" data-presentation-slide hidden>
+        <p>Agenda 01</p>
+        <h1>Meeting the Entire Team</h1>
+        <div class="agenda-focus" style="--active-step: 1">
+          <div class="agenda-rail" aria-hidden="true">
+            <span class="is-active">01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+          </div>
+          <p>Start with a fast round-robin introduction so everyone knows who is in the room and which team they represent.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda presentation-slide--morph-focus" data-presentation-slide hidden>
+        <p>Agenda 02</p>
+        <h1>Creating a Topic</h1>
+        <div class="agenda-focus" style="--active-step: 2">
+          <div class="agenda-rail" aria-hidden="true">
+            <span>01</span><span class="is-active">02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+          </div>
+          <p>Participants write the topics they want to discuss. The goal is quantity first, then clarity: one idea per topic, with details added where helpful.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda presentation-slide--morph-focus" data-presentation-slide hidden>
+        <p>Agenda 03</p>
+        <h1>Discussing Which Topic</h1>
+        <div class="agenda-focus" style="--active-step: 3">
+          <div class="agenda-rail" aria-hidden="true">
+            <span>01</span><span>02</span><span class="is-active">03</span><span>04</span><span>05</span><span>06</span>
+          </div>
+          <p>Each team votes on the topics that matter most. The strongest topics move forward; lower-priority items stay visible but muted.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda presentation-slide--morph-focus" data-presentation-slide hidden>
+        <p>Agenda 04</p>
+        <h1>Meet with all the Teams</h1>
+        <div class="agenda-focus" style="--active-step: 4">
+          <div class="agenda-rail" aria-hidden="true">
+            <span>01</span><span>02</span><span>03</span><span class="is-active">04</span><span>05</span><span>06</span>
+          </div>
+          <p>The selected topics are brought together so everyone can see what rose to the top across the room.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda presentation-slide--morph-focus" data-presentation-slide hidden>
+        <p>Agenda 05</p>
+        <h1>Discussing and Collaborating</h1>
+        <div class="agenda-focus" style="--active-step: 5">
+          <div class="agenda-rail" aria-hidden="true">
+            <span>01</span><span>02</span><span>03</span><span>04</span><span class="is-active">05</span><span>06</span>
+          </div>
+          <p>The group works through the selected topics, captures pain points, identifies potential solutions, and assigns a status for follow-up.</p>
+        </div>
+      </section>
+
+      <section class="presentation-slide presentation-slide--agenda presentation-slide--morph-focus" data-presentation-slide hidden>
+        <p>Agenda 06</p>
+        <h1>Closing and Takeaways</h1>
+        <div class="agenda-focus" style="--active-step: 6">
+          <div class="agenda-rail" aria-hidden="true">
+            <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span class="is-active">06</span>
+          </div>
+          <p>Close with the clearest takeaways: what was learned, what needs follow-up, and what should happen after the session.</p>
+        </div>
       </section>
 
       <button type="button" class="presentation-arrow presentation-arrow--left" data-presentation-prev aria-label="Previous slide">
