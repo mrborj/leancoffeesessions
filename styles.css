@@ -2281,12 +2281,18 @@ td {
 .group-cluster span,
 .main-group span,
 .listener-row span {
+  --avatar-shirt: var(--philips-blue);
+  --avatar-skin: #ffd7bf;
+  --avatar-hair: #6d341f;
   position: absolute;
-  width: 2.1rem;
-  height: 3.6rem;
-  border-radius: 999px 999px 0.75rem 0.75rem;
-  background: linear-gradient(180deg, #8fbdff 0 35%, var(--philips-blue) 35% 100%);
-  box-shadow: 0 0.8rem 1.4rem rgba(0, 0, 0, 0.22);
+  width: 3.2rem;
+  height: 4.6rem;
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse at 50% 82%, color-mix(in srgb, var(--avatar-shirt), #fff 18%) 0 1.55rem, transparent 1.6rem),
+    linear-gradient(180deg, transparent 0 42%, var(--avatar-shirt) 42% 70%, transparent 70%);
+  box-shadow:
+    0 0.8rem 1.4rem rgba(0, 0, 0, 0.18);
 }
 
 .mini-person::before,
@@ -2297,18 +2303,52 @@ td {
 .listener-row span::before {
   content: "";
   position: absolute;
-  top: -1rem;
+  top: -0.82rem;
   left: 50%;
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.82rem;
+  height: 2.02rem;
   border-radius: 50%;
-  background: #f8d7ba;
+  background:
+    radial-gradient(ellipse at 50% 4%, var(--avatar-hair) 0 0.62rem, transparent 0.66rem),
+    radial-gradient(circle at 34% 47%, #241817 0 0.07rem, transparent 0.09rem),
+    radial-gradient(circle at 66% 47%, #241817 0 0.07rem, transparent 0.09rem),
+    radial-gradient(ellipse at 50% 70%, rgba(64, 49, 47, 0.68) 0 0.12rem, transparent 0.15rem),
+    linear-gradient(180deg, var(--avatar-skin), color-mix(in srgb, var(--avatar-skin), #c68162 18%));
+  box-shadow:
+    -0.78rem 0.12rem 0 -0.5rem var(--avatar-hair),
+    0.78rem 0.12rem 0 -0.5rem var(--avatar-hair),
+    inset -0.18rem -0.1rem 0 rgba(64, 49, 47, 0.12),
+    0 0.35rem 0.8rem rgba(0, 0, 0, 0.18);
   transform: translateX(-50%);
 }
 
-.person-a { left: 22%; bottom: 18%; animation: speakerCycle 6s infinite; }
-.person-b { left: 48%; bottom: 18%; animation: speakerCycle 6s 2s infinite; }
-.person-c { left: 74%; bottom: 18%; animation: speakerCycle 6s 4s infinite; }
+.mini-person::after,
+.walking-person::after,
+.presenter-person::after,
+.group-cluster span::after,
+.main-group span::after,
+.listener-row span::after {
+  content: "";
+  position: absolute;
+  top: 1.72rem;
+  left: 50%;
+  width: 4.2rem;
+  height: 2.35rem;
+  border-radius: 0.12rem;
+  background:
+    radial-gradient(circle at 3% 24%, var(--avatar-skin) 0 0.26rem, transparent 0.28rem),
+    radial-gradient(circle at 97% 24%, var(--avatar-skin) 0 0.26rem, transparent 0.28rem),
+    linear-gradient(180deg, #f8f8fa, #e7e8ed);
+  box-shadow:
+    0 0.55rem 1.1rem rgba(0, 0, 0, 0.18),
+    inset 0 -0.12rem 0 rgba(0, 0, 0, 0.05);
+  transform: translateX(-50%) rotate(-1deg);
+  z-index: 2;
+}
+
+.person-a { --avatar-shirt: #2b8be8; --avatar-hair: #a44f22; left: 22%; bottom: 18%; animation: speakerCycle 6s infinite; }
+.person-b { --avatar-shirt: #c43bb6; --avatar-skin: #8b4c3f; --avatar-hair: #2f201c; left: 48%; bottom: 18%; animation: speakerCycle 6s 2s infinite; }
+.person-c { --avatar-shirt: #315fd7; --avatar-hair: #241817; left: 74%; bottom: 18%; animation: speakerCycle 6s 4s infinite; }
 
 .speech-card {
   position: absolute;
@@ -2386,6 +2426,28 @@ td {
 .group-cluster span:nth-child(2) { left: 42%; bottom: 32%; transform: scale(0.88); }
 .group-cluster span:nth-child(3) { right: 18%; bottom: 18%; }
 
+.group-cluster span:nth-child(1),
+.main-group span:nth-child(1),
+.listener-row span:nth-child(1) {
+  --avatar-shirt: #2b8be8;
+  --avatar-hair: #a44f22;
+}
+
+.group-cluster span:nth-child(2),
+.main-group span:nth-child(2),
+.listener-row span:nth-child(2) {
+  --avatar-shirt: #f5a623;
+  --avatar-hair: #6d341f;
+}
+
+.group-cluster span:nth-child(3),
+.main-group span:nth-child(3),
+.listener-row span:nth-child(3) {
+  --avatar-shirt: #c43bb6;
+  --avatar-skin: #8b4c3f;
+  --avatar-hair: #241817;
+}
+
 .group-cluster em {
   position: absolute;
   top: 0.7rem;
@@ -2411,16 +2473,24 @@ td {
 .main-group span:nth-child(3) { right: 28%; bottom: 18%; }
 .main-group span:nth-child(4) { right: 0; bottom: 0; }
 
+.main-group span:nth-child(4),
+.listener-row span:nth-child(4) {
+  --avatar-shirt: #15bd78;
+  --avatar-hair: #b13f2f;
+}
+
 .walking-person {
   bottom: 20%;
   animation: walkToGroup 4.6s ease-in-out infinite;
 }
 
 .walker-one { left: 4%; animation-delay: 0ms; }
-.walker-two { left: 84%; animation-delay: 540ms; animation-name: walkToGroupReverse; }
-.walker-three { left: 16%; animation-delay: 1080ms; }
+.walker-two { --avatar-shirt: #c43bb6; --avatar-skin: #8b4c3f; --avatar-hair: #241817; left: 84%; animation-delay: 540ms; animation-name: walkToGroupReverse; }
+.walker-three { --avatar-shirt: #f5a623; --avatar-hair: #6d341f; left: 16%; animation-delay: 1080ms; }
 
 .presenter-person {
+  --avatar-shirt: #2b8be8;
+  --avatar-hair: #6d341f;
   left: 14%;
   bottom: 20%;
   transform-origin: bottom center;
