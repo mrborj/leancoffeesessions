@@ -138,6 +138,7 @@ if (isAdmin && liveHome && collabSession.adminSession()?.role === "Session Admin
 }
 
 if (!isAdmin) {
+  closeDetail.hidden = true;
   saveNotes.hidden = true;
   adminNotes.querySelectorAll("textarea, select").forEach((field) => {
     field.disabled = true;
@@ -154,10 +155,11 @@ function findTopic(topicKey) {
 board.addEventListener("click", (event) => {
   const button = event.target.closest("[data-topic-key]");
   if (!button) return;
+  if (!isAdmin) return;
 
   activeTopicKey = button.dataset.topicKey;
   adminTopicDraftDirty = false;
-  if (isAdmin) collabSession.setItem(activeTopicStorageKey, activeTopicKey);
+  collabSession.setItem(activeTopicStorageKey, activeTopicKey);
   openTopicDetail(activeTopicKey);
 });
 
@@ -206,8 +208,9 @@ saveNotes.addEventListener("click", async () => {
 
   adminTopicDraftDirty = false;
   renderBoard();
+  detailModal.hidden = true;
+  collabSession.setItem(activeTopicStorageKey, "");
   await refreshBackendData();
-  openTopicDetail(activeTopicKey);
 });
 
 function openTopicDetail(topicKey, options = {}) {
@@ -229,8 +232,8 @@ function openTopicDetail(topicKey, options = {}) {
     ${found.topic.solutions ? `<br><br><strong>Potential Solutions:</strong> ${escapeHtml(found.topic.solutions)}` : ""}
     <br><br><strong>Status:</strong> ${escapeHtml(found.topic.status || "For Further Discussion")}
   `;
-  adminNotes.hidden = !isAdmin;
-  if (isAdmin && !preserveAdminFields) {
+  adminNotes.hidden = false;
+  if (!preserveAdminFields) {
     adminNotes.querySelector('[name="notes"]').value = found.topic.notes || "";
     adminNotes.querySelector('[name="painPoints"]').value = found.topic.painPoints || "";
     adminNotes.querySelector('[name="solutions"]').value = found.topic.solutions || "";

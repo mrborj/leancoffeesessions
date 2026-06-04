@@ -54,9 +54,6 @@ let lastFinalCountdownValue = null;
 let backendTimer = null;
 let timerWriteInFlight = false;
 let startableSessionCache = null;
-let finalSummarySessionId = "";
-let finalSummaryTopics = null;
-const sessionCommandStorageKey = "leanCoffeeSessionCommand";
 
 function runtimeAgenda() {
   return activeRuntime.agenda.map((item) => ({ ...item, seconds: item.minutes * 60 }));
@@ -158,39 +155,6 @@ async function refreshBackendTimer() {
     }
   } catch {
     // Quiet fallback to local storage.
-  }
-}
-
-async function refreshSessionCommand() {
-  if (!timerSession || isAdminLiveView()) return;
-  const sessionId = timerSession.activeSession().id;
-  try {
-    const response = await fetch(`/api/session-command?sessionId=${encodeURIComponent(sessionId)}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.command) {
-        handleSessionCommand(data.command);
-        return;
-      }
-    }
-  } catch {
-    // Fall through to local storage fallback.
-  }
-
-  try {
-    const command = JSON.parse(localStorage.getItem(`${sessionCommandStorageKey}:${sessionId}`) || "null");
-    if (command) handleSessionCommand(command);
-  } catch {}
-}
-
-function handleSessionCommand(command) {
-  if (command.command !== "navigate" || !command.target) return;
-  const consumedKey = `leanCoffeeConsumedCommand:${command.id || command.created_at || command.target}`;
-  if (sessionStorage.getItem(consumedKey)) return;
-  sessionStorage.setItem(consumedKey, "true");
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
-  if (currentPage !== command.target) {
-    window.location.href = command.target;
   }
 }
 
@@ -614,34 +578,9 @@ function renderConfetti(field) {
   }).join("");
 }
 
-async function finalTopicEntries() {
-  const sessionId = timerSession?.activeSession().id || "";
-  if (finalSummarySessionId === sessionId && finalSummaryTopics) {
-    return finalSummaryTopics;
-  }
-
-  try {
-    const response = await fetch(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data?.topics)) {
-        finalSummarySessionId = sessionId;
-        finalSummaryTopics = data.topics;
-        return finalSummaryTopics;
-      }
-    }
-  } catch {
-    // Fall back to local storage when the backend is unavailable.
-  }
-
-  finalSummarySessionId = sessionId;
-  finalSummaryTopics = timerSession.readItems("leanCoffeeTopics");
-  return finalSummaryTopics;
-}
-
-async function renderFinalSummary(summary) {
+function renderFinalSummary(summary) {
   if (!summary) return;
-  const topics = (await finalTopicEntries())
+  const topics = timerSession.readItems("leanCoffeeTopics")
     .flatMap((entry) =>
       entry.topics.map((topic) => ({
         teamNumber: entry.teamNumber,
@@ -691,6 +630,5 @@ loadRuntime().then(() => refreshBackendTimer()).then(renderTimer);
 window.setInterval(async () => {
   await loadRuntime();
   await refreshBackendTimer();
-  await refreshSessionCommand();
   renderTimer();
 }, 1000);

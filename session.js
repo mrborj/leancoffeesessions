@@ -173,7 +173,6 @@ const LeanCoffeeSession = (() => {
     readItemsForSession,
     removeItem,
     removeItemForSession,
-    participantSession,
     saveSession,
     sessionForTeam,
     sessions,

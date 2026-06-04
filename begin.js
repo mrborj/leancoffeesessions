@@ -3,7 +3,6 @@ const participantLoginError = document.querySelector("[data-participant-login-er
 
 const participantStorageKey = "leanCoffeeParticipants";
 const participantSessionKey = "leanCoffeeParticipantSession";
-const sessionCommandStorageKey = "leanCoffeeSessionCommand";
 
 function readItems(key) {
   return LeanCoffeeSession.readItems(key);
@@ -35,25 +34,7 @@ async function apiParticipantLogin(email, password) {
   return data;
 }
 
-async function latestSessionCommand(sessionId) {
-  try {
-    const response = await fetch(`/api/session-command?sessionId=${encodeURIComponent(sessionId)}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.command) return data.command;
-    }
-  } catch {
-    // Fall through to local storage fallback.
-  }
-
-  try {
-    return JSON.parse(localStorage.getItem(`${sessionCommandStorageKey}:${sessionId}`) || "null");
-  } catch {
-    return null;
-  }
-}
-
-async function saveParticipantSession(participant, session) {
+function saveParticipantSession(participant, session) {
   LeanCoffeeSession.setActiveSession(session);
   sessionStorage.setItem(
     participantSessionKey,
@@ -66,11 +47,6 @@ async function saveParticipantSession(participant, session) {
     })
   );
   participantLoginForm.reset();
-  const command = await latestSessionCommand(session.id);
-  if (command?.command === "navigate" && command.target === "present.html") {
-    window.location.href = "present.html";
-    return;
-  }
   window.location.href = "event.html";
 }
 
@@ -84,7 +60,7 @@ participantLoginForm.addEventListener("submit", async (event) => {
   try {
     const apiLogin = await apiParticipantLogin(email, password);
     if (apiLogin?.participant && apiLogin?.session) {
-      await saveParticipantSession(apiLogin.participant, apiLogin.session);
+      saveParticipantSession(apiLogin.participant, apiLogin.session);
       return;
     }
   } catch (error) {
@@ -106,5 +82,5 @@ participantLoginForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  await saveParticipantSession(participant, session);
+  saveParticipantSession(participant, session);
 });

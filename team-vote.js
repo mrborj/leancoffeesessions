@@ -188,8 +188,6 @@ window.addEventListener("storage", (event) => {
 });
 
 window.addEventListener("leanCoffeeTimerTick", (event) => {
-  if (event.detail.timer.concluded) return;
-
   if (!event.detail.timer.running && event.detail.remaining === event.detail.timer.duration && !event.detail.timer.concluded) {
     window.location.href = "event.html";
     return;

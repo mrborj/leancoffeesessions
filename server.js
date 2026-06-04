@@ -434,16 +434,6 @@ async function initializeDatabase() {
     )
   `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS session_commands (
-      id TEXT PRIMARY KEY,
-      session_id TEXT NOT NULL REFERENCES sessions(id),
-      command TEXT NOT NULL,
-      target TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
   await pool.query(
     `
       INSERT INTO app_settings (key, value)
@@ -529,44 +519,6 @@ async function handleApi(request, response) {
       [JSON.stringify(runtime)]
     );
     sendJson(response, 200, { ok: true, runtime, presets: runtimePresets });
-    return true;
-  }
-
-  if (url.pathname === "/api/session-command" && request.method === "GET") {
-    const sessionId = url.searchParams.get("sessionId") || "master-data";
-    const result = await pool.query(
-      `
-        SELECT *
-        FROM session_commands
-        WHERE session_id = $1
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
-      [sessionId]
-    );
-    sendJson(response, 200, { ok: true, command: result.rows[0] || null });
-    return true;
-  }
-
-  if (url.pathname === "/api/session-command" && request.method === "POST") {
-    const body = await readRequestBody(request);
-    const id = body.id || `command-${crypto.randomUUID()}`;
-    const sessionId = body.sessionId || "master-data";
-    const command = body.command || "navigate";
-    const target = body.target || "";
-    if (!target) {
-      sendJson(response, 400, { ok: false, error: "Command target is required." });
-      return true;
-    }
-    const result = await pool.query(
-      `
-        INSERT INTO session_commands (id, session_id, command, target)
-        VALUES ($1, $2, $3, $4)
-        RETURNING *
-      `,
-      [id, sessionId, command, target]
-    );
-    sendJson(response, 200, { ok: true, command: result.rows[0] });
     return true;
   }
 
