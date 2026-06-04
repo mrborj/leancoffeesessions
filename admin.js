@@ -139,11 +139,14 @@ async function broadcastPresentation(event) {
   };
 
   try {
-    await apiRequest("/api/session-command", {
+    const data = await apiRequest("/api/session-command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(command),
     });
+    if (!data?.command) {
+      localStorage.setItem(`leanCoffeeSessionCommand:${sessionId}`, JSON.stringify(command));
+    }
   } catch {
     localStorage.setItem(`leanCoffeeSessionCommand:${sessionId}`, JSON.stringify(command));
   }

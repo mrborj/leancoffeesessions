@@ -166,15 +166,21 @@ async function refreshSessionCommand() {
   const sessionId = timerSession.activeSession().id;
   try {
     const response = await fetch(`/api/session-command?sessionId=${encodeURIComponent(sessionId)}`);
-    if (response.status === 503 || response.status === 404) return;
-    const data = await response.json();
-    if (data?.command) handleSessionCommand(data.command);
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.command) {
+        handleSessionCommand(data.command);
+        return;
+      }
+    }
   } catch {
-    try {
-      const command = JSON.parse(localStorage.getItem(`${sessionCommandStorageKey}:${sessionId}`) || "null");
-      if (command) handleSessionCommand(command);
-    } catch {}
+    // Fall through to local storage fallback.
   }
+
+  try {
+    const command = JSON.parse(localStorage.getItem(`${sessionCommandStorageKey}:${sessionId}`) || "null");
+    if (command) handleSessionCommand(command);
+  } catch {}
 }
 
 function handleSessionCommand(command) {
