@@ -54,6 +54,8 @@ let lastFinalCountdownValue = null;
 let backendTimer = null;
 let timerWriteInFlight = false;
 let startableSessionCache = null;
+let finalSummarySessionId = "";
+let finalSummaryTopics = null;
 
 function runtimeAgenda() {
   return activeRuntime.agenda.map((item) => ({ ...item, seconds: item.minutes * 60 }));
@@ -578,9 +580,34 @@ function renderConfetti(field) {
   }).join("");
 }
 
-function renderFinalSummary(summary) {
+async function finalTopicEntries() {
+  const sessionId = timerSession?.activeSession().id || "";
+  if (finalSummarySessionId === sessionId && finalSummaryTopics) {
+    return finalSummaryTopics;
+  }
+
+  try {
+    const response = await fetch(`/api/topics?sessionId=${encodeURIComponent(sessionId)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data?.topics)) {
+        finalSummarySessionId = sessionId;
+        finalSummaryTopics = data.topics;
+        return finalSummaryTopics;
+      }
+    }
+  } catch {
+    // Fall back to local storage when the backend is unavailable.
+  }
+
+  finalSummarySessionId = sessionId;
+  finalSummaryTopics = timerSession.readItems("leanCoffeeTopics");
+  return finalSummaryTopics;
+}
+
+async function renderFinalSummary(summary) {
   if (!summary) return;
-  const topics = timerSession.readItems("leanCoffeeTopics")
+  const topics = (await finalTopicEntries())
     .flatMap((entry) =>
       entry.topics.map((topic) => ({
         teamNumber: entry.teamNumber,

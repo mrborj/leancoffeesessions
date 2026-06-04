@@ -146,7 +146,7 @@ window.addEventListener("storage", (event) => {
 
 window.addEventListener("leanCoffeeTimerTick", (event) => {
   currentAgenda.textContent = event.detail.phase.title;
-  if (event.detail.phase.index >= 3) {
+  if (!event.detail.timer.concluded && event.detail.phase.index >= 3) {
     window.location.href = "collaboration.html?admin=1";
   }
 });
