@@ -130,7 +130,9 @@ async function apiRequest(path, options = {}) {
 
 async function broadcastPresentation(event) {
   event.preventDefault();
-  const sessionId = LeanCoffeeSession.activeSession().id;
+  const session = presentationSession();
+  LeanCoffeeSession.setActiveSession(session);
+  const sessionId = session.id;
   const command = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     sessionId,
@@ -152,6 +154,14 @@ async function broadcastPresentation(event) {
   }
 
   window.location.href = "present.html";
+}
+
+function presentationSession() {
+  const sessions = visibleSessions();
+  return sessions.find((session) => sessionStatus(session) === "Active") ||
+    sessions.find((session) => session.status === "Ongoing") ||
+    (sessions.length === 1 ? sessions[0] : null) ||
+    LeanCoffeeSession.activeSession();
 }
 
 async function loadBackendAdmins() {
