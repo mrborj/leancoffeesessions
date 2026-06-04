@@ -4,8 +4,16 @@ const presentationPrev = document.querySelector("[data-presentation-prev]");
 const presentationNext = document.querySelector("[data-presentation-next]");
 let presentationIndex = 0;
 
-if (presentSession.adminSession()?.role !== "Session Admin") {
-  window.location.href = "session-admin.html";
+const presentationClose = document.querySelector(".presentation-close");
+const adminSession = presentSession.adminSession();
+const participantSession = presentSession.participantSession();
+
+if (!adminSession && !participantSession) {
+  window.location.href = "begin.html";
+}
+
+if (participantSession) {
+  presentationClose.href = "collaboration.html";
 }
 
 function showPresentationSlide(nextIndex) {

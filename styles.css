@@ -1731,19 +1731,22 @@ td {
 
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 1rem;
+  width: 100%;
   align-items: start;
 }
 
 .kanban-column {
-  min-height: 60vh;
+  min-width: 0;
+  min-height: clamp(16rem, 48vh, 60vh);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   padding: 0.85rem;
   background: rgba(25, 18, 17, 0.72);
   box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(18px);
+  overflow: hidden;
 }
 
 .kanban-column h2 {
@@ -1755,9 +1758,13 @@ td {
 .kanban-notes {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .sticky-note {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   min-height: 9rem;
   border-radius: 4px;
   padding: 0.9rem;
@@ -1766,28 +1773,29 @@ td {
   box-shadow:
     0 0.75rem 1.2rem rgba(0, 0, 0, 0.22),
     inset 0 0 0 1px rgba(118, 86, 64, 0.1);
-  transform: rotate(-0.8deg);
+  overflow-wrap: anywhere;
+  transform: none;
 }
 
 .sticky-note:nth-child(even) {
   background: #dbe8ff;
-  transform: rotate(0.7deg);
+  transform: none;
 }
 
 .sticky-note.is-unselected {
   opacity: 0.46;
   filter: grayscale(1);
-  transform: scale(0.96) rotate(-0.3deg);
+  transform: none;
   order: 2;
 }
 
 .sticky-note.is-selected {
   position: relative;
   z-index: 1;
-  transform: translateY(-0.18rem) scale(1.045) rotate(0deg);
+  transform: none;
   box-shadow:
     0 1.1rem 1.8rem rgba(0, 0, 0, 0.28),
-    0 0 0 4px rgba(11, 94, 215, 0.52),
+    inset 0 0 0 4px rgba(11, 94, 215, 0.52),
     inset 0 0 0 2px rgba(255, 255, 255, 0.55),
     inset 0 -0.45rem 0.9rem rgba(118, 86, 64, 0.14);
   order: 1;
@@ -1953,7 +1961,7 @@ td {
 
 .sticky-note-button:hover,
 .sticky-note-button:focus-visible {
-  transform: translateY(-0.2rem) rotate(0deg);
+  transform: none;
 }
 
 .topic-dialog .form-actions button[type="submit"] {

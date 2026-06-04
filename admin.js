@@ -36,6 +36,7 @@ const ongoingSessionLink = document.querySelector("[data-ongoing-session-link]")
 const runtimeForm = document.querySelector("[data-runtime-form]");
 const runtimeSelect = document.querySelector("[data-runtime-select]");
 const runtimePreview = document.querySelector("[data-runtime-preview]");
+const presentationMenuLink = document.querySelector(".presentation-menu-link");
 let topicGroupMode = "all";
 const expandedAdmins = new Set();
 const adminRuntimeStorageKey = "leanCoffeeRuntime";
@@ -125,6 +126,29 @@ async function apiRequest(path, options = {}) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Request failed.");
   return data;
+}
+
+async function broadcastPresentation(event) {
+  event.preventDefault();
+  const sessionId = LeanCoffeeSession.activeSession().id;
+  const command = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    sessionId,
+    command: "navigate",
+    target: "present.html",
+  };
+
+  try {
+    await apiRequest("/api/session-command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(command),
+    });
+  } catch {
+    localStorage.setItem(`leanCoffeeSessionCommand:${sessionId}`, JSON.stringify(command));
+  }
+
+  window.location.href = "present.html";
 }
 
 async function loadBackendAdmins() {
@@ -1725,6 +1749,7 @@ deleteRecordSelect?.addEventListener("change", renderDeleteData);
 deleteDataButton?.addEventListener("click", deleteSelectedData);
 runtimeForm?.addEventListener("submit", saveRuntime);
 runtimeSelect?.addEventListener("change", renderRuntimePreview);
+presentationMenuLink?.addEventListener("click", broadcastPresentation);
 
 try {
   const storedRuntime = JSON.parse(localStorage.getItem(adminRuntimeStorageKey) || "null");

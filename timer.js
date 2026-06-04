@@ -56,6 +56,7 @@ let timerWriteInFlight = false;
 let startableSessionCache = null;
 let finalSummarySessionId = "";
 let finalSummaryTopics = null;
+const sessionCommandStorageKey = "leanCoffeeSessionCommand";
 
 function runtimeAgenda() {
   return activeRuntime.agenda.map((item) => ({ ...item, seconds: item.minutes * 60 }));
@@ -157,6 +158,33 @@ async function refreshBackendTimer() {
     }
   } catch {
     // Quiet fallback to local storage.
+  }
+}
+
+async function refreshSessionCommand() {
+  if (!timerSession || isAdminLiveView()) return;
+  const sessionId = timerSession.activeSession().id;
+  try {
+    const response = await fetch(`/api/session-command?sessionId=${encodeURIComponent(sessionId)}`);
+    if (response.status === 503 || response.status === 404) return;
+    const data = await response.json();
+    if (data?.command) handleSessionCommand(data.command);
+  } catch {
+    try {
+      const command = JSON.parse(localStorage.getItem(`${sessionCommandStorageKey}:${sessionId}`) || "null");
+      if (command) handleSessionCommand(command);
+    } catch {}
+  }
+}
+
+function handleSessionCommand(command) {
+  if (command.command !== "navigate" || !command.target) return;
+  const consumedKey = `leanCoffeeConsumedCommand:${command.id || command.created_at || command.target}`;
+  if (sessionStorage.getItem(consumedKey)) return;
+  sessionStorage.setItem(consumedKey, "true");
+  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+  if (currentPage !== command.target) {
+    window.location.href = command.target;
   }
 }
 
@@ -657,5 +685,6 @@ loadRuntime().then(() => refreshBackendTimer()).then(renderTimer);
 window.setInterval(async () => {
   await loadRuntime();
   await refreshBackendTimer();
+  await refreshSessionCommand();
   renderTimer();
 }, 1000);
